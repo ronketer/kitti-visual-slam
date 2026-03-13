@@ -4,9 +4,9 @@ A robust stereo visual SLAM pipeline built to process high-volume spatial data f
 
 ## 🚀 System Features
 
-* **Feature Tracking:** Processed **2,600+ frames** using AKAZE/ORB/SIFT detectors with Lowe’s ratio filtering and epipolar consistency checks.
-* **Robust Motion Estimation:** Implemented a temporal-stereo matching pipeline using **RANSAC** to identify inlier supporters for accurate camera pose estimation.
-* **Factor-Graph Optimization:** Formulated windowed **Bundle Adjustment** using **GTSAM**, optimizing trajectory parameters to reduce relative translation error by **3x**.
+* **Feature Tracking:** Analyzed 2,600+ frames** using AKAZE/ORB/SIFT detectors with Lowe’s ratio filtering and epipolar consistency checks.
+* **Robust Motion Estimation:** Implemented a temporal-stereo matching pipeline via **RANSAC** to identify inlier supporters for accurate camera pose estimation.
+* **Factor-Graph Optimization:** Designed windowed **Bundle Adjustment** with **GTSAM**, optimizing trajectory parameters to reduce relative translation error by **3x**.
 * **Spatial Database:** Designed a track database to analyze track length statistics, connectivity, and reprojection errors across frames.
 
 ## 🛠️ Requirements
