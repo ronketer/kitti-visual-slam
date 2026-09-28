@@ -1,4 +1,4 @@
-from consts import OUTPUT_RELATIVE_PATH, LASTFRAME
+from consts import OUTPUT_RELATIVE_PATH, LASTFRAME, GT_POSES_FILE
 from alg import (
     create_tracking_db,
     create_stereo_camera,
@@ -490,7 +490,7 @@ def q3(db, K):
 
 def q4(db, K):
     gt_matrices = []
-    with open("dataset/poses/05.txt", "r") as f:
+    with open(GT_POSES_FILE, "r") as f:
         gt_matrices = [parse_gt_line(line) for line in f.readlines()[: LASTFRAME + 1]]
     gt_centers = np.array([find_camera_location(m) for m in gt_matrices])
 

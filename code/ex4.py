@@ -1,5 +1,5 @@
 from consts import OUTPUT_RELATIVE_PATH
-from alg import create_tracking_db
+from tracking import build_tracking_database as create_tracking_db
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt

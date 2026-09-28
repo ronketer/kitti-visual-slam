@@ -4,7 +4,7 @@ import gtsam
 import gtsam.utils.plot as gtsam_plot
 from tqdm import tqdm
 import pickle
-from consts import OUTPUT_RELATIVE_PATH, LASTFRAME
+from consts import OUTPUT_RELATIVE_PATH, LASTFRAME, GT_POSES_FILE
 from alg import create_pose_from_extrinsics
 from utility import find_camera_location
 from ex5 import plot_trajectories, plot_trajectory_errors, plot_relative_translation_errors
@@ -303,7 +303,7 @@ def main():
         windows_graph_list
     )
     gt_matrices = []
-    with open("dataset/poses/05.txt", "r") as f:
+    with open(GT_POSES_FILE, "r") as f:
         gt_matrices = [parse_gt_line(line) for line in f.readlines()[:LASTFRAME + 1]]
     last_frame_gt_matrix = gt_matrices[LASTFRAME]
     pose_graph, pose_graph_initial_estimate, kf_pose_keys = build_pose_graph_with_loop_closure(relative_poses_and_covariances , last_frame_gt_matrix)

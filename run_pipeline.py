@@ -19,9 +19,11 @@ import sys
 # Allow importing pipeline modules from code/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "code"))
 
-TRACKING_PKL = "code/output/tracking_with_geometric_validation_without_far_tracks.pkl"
-BA_PKL = "code/output/ba_results.pkl"
-LOOP_PKL = "code/output/loop_closure_results.pkl"
+from config import DEFAULT_PATHS
+
+TRACKING_PKL = str(DEFAULT_PATHS.output_dir / "tracking_with_geometric_validation_without_far_tracks.pkl")
+BA_PKL = str(DEFAULT_PATHS.output_dir / "ba_results.pkl")
+LOOP_PKL = str(DEFAULT_PATHS.output_dir / "loop_closure_results.pkl")
 
 
 def run_stage_1(force: bool) -> None:
@@ -30,11 +32,11 @@ def run_stage_1(force: bool) -> None:
         return
 
     print("Stage 1: Feature Tracking — building tracking database (this takes ~10 min)...")
-    os.makedirs("code/output", exist_ok=True)
+    os.makedirs(DEFAULT_PATHS.output_dir, exist_ok=True)
 
-    from alg import create_tracking_db
+    from tracking import build_tracking_database
 
-    db = create_tracking_db()
+    db = build_tracking_database()
     output_base = TRACKING_PKL.removesuffix(".pkl")
     db.serialize(output_base)
     print(f"Stage 1 complete. Saved to {TRACKING_PKL}")

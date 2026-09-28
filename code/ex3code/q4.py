@@ -1,33 +1,6 @@
+from supporters import validate_projections_batch
 from utility import coordinate_transform
 import numpy as np
-
-def validate_projections_batch(points, extrinsic_matrix, K, keypoints, threshold=2):
-    """
-    Validate projections for multiple points at once using vectorized operations.
-    
-    Args:
-        points: (N, 3) array of 3D points
-        extrinsic_matrix: (3, 4) camera extrinsic matrix
-        K: (3, 3) camera intrinsic matrix
-        keypoints: list of N keypoints
-        threshold: distance threshold for validation
-        
-    Returns:
-        (N,) boolean array where True indicates valid projections
-    """
-    # Convert keypoints to numpy array
-    keypoints_array = np.array([kp.pt for kp in keypoints], dtype=np.float32)
-    
-    # Transform and project points
-    points_transformed = coordinate_transform(points, extrinsic_matrix)
-    projected_points = (K @ points_transformed.T).T
-    
-    # Normalize homogeneous coordinates
-    projected_points_2D = projected_points[:, :2] / projected_points[:, 2:3]
-    
-    # Calculate distances
-    distances = np.linalg.norm(projected_points_2D - keypoints_array, axis=1)
-    return distances < threshold
 
 def q4(common_matches_indices, cloud0, kp_left0, kp_right0, kp_left1, kp_right1, K, 
        extrinsic_l1, extrinsic_r1, extrinsic_l0, extrinsic_r0, inliers0, logger=None):

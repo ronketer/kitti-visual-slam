@@ -1,8 +1,12 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+from geometry import compose_extrinsics, find_camera_location, coordinate_transform
 import cv2
-from gtsam import Cal3_S2Stereo
+from config import DEFAULT_PATHS
+from dataset import read_images, read_cameras, parse_gt_line_matrix
+from stereo import find_stereo_temporal_matches
+from motion import rodriguez_to_mat
 
 from mpl_toolkits.mplot3d import Axes3D
 import time
@@ -28,11 +32,6 @@ def read_ground_truth_poses(lastframe=LASTFRAME):
         return [parse_gt_line(line) for line in f.readlines()[: lastframe + 1]]
 
 
-def parse_gt_line_matrix(line):
-    """Parse one line of ground truth pose and return full extrinsic matrix."""
-    mat = np.array([float(x) for x in line.strip().split()]).reshape(3, 4)
-    return mat
-
 
 def plot_and_save(img, title, output_path, figsize, dpi):
     """Helper function to plot and save an image."""
@@ -45,31 +44,11 @@ def plot_and_save(img, title, output_path, figsize, dpi):
     plt.close()
 
 
-def read_images(idx):
-    """Read left and right images from the dataset."""
-    img_name = "{:06d}.png".format(idx)
-    img0 = cv2.imread(os.path.join(LEFT_IMG_DIR, img_name), 0)
-    img1 = cv2.imread(os.path.join(RIGHT_IMG_DIR, img_name), 0)
-    return img0, img1
-
-
-def read_cameras():
-    with open(DATA_PATH + "calib.txt") as f:
-        l1 = f.readline().split()[1:]
-        l2 = f.readline().split()[1:]
-        l1 = [float(i) for i in l1]
-        m1 = np.array(l1).reshape(3, 4)
-        l2 = [float(i) for i in l2]
-        m2 = np.array(l2).reshape(3, 4)
-        k = m1[:, :3]
-        m1 = np.linalg.inv(k) @ m1
-        m2 = np.linalg.inv(k) @ m2
-        return k, m1, m2
-
-
-def read_calibration():
+def read_calibration(calibration=None, paths=DEFAULT_PATHS):
     """Read camera calibration parameters from the dataset."""
-    K_mat, M1, M2 = read_cameras()
+    from gtsam import Cal3_S2Stereo
+
+    K_mat, M1, M2 = read_cameras(paths) if calibration is None else calibration
     fx, fy, skew, cx, cy, basline = (
         K_mat[0, 0],
         K_mat[1, 1],
@@ -80,35 +59,6 @@ def read_calibration():
     )
     K = Cal3_S2Stereo(fx, fy, skew, cx, cy, -basline)
     return K
-
-
-def rodriguez_to_mat(rvec, tvec):
-    rot, _ = cv2.Rodrigues(rvec)
-    return np.hstack((rot, tvec))
-
-
-def compose_extrinsics(second_transform, first_transform):
-    """Compose two extrinsic transformations.
-
-    Args:
-        second_transform: The transformation that will be applied second
-        first_transform: The transformation that will be applied first
-
-    Returns:
-        Combined transformation that applies first_transform followed by second_transform
-
-    Example:
-        If you want to transform from coordinate system A to B to C:
-        - first_transform: A to B transformation
-        - second_transform: B to C transformation
-        Result will be: A to C transformation
-    """
-    R_second = second_transform[:, :3]
-    t_second = second_transform[:, 3].reshape(3, 1)
-    R_first = first_transform[:, :3]
-    t_first = first_transform[:, 3].reshape(3, 1)
-
-    return np.hstack((R_second @ R_first, R_second @ t_first + t_second))
 
 
 def compute_camera_to_camera_transform(source_cam_extrinsic, target_cam_extrinsic):
@@ -140,76 +90,11 @@ def compute_camera_to_camera_transform(source_cam_extrinsic, target_cam_extrinsi
     return np.hstack((cam_to_cam_rotation, cam_to_cam_translation))
 
 
-def find_camera_location(extrinsic_matrix):
-    """Find the camera location from the extrinsic matrix."""
-    R = extrinsic_matrix[:, :3]
-    t = extrinsic_matrix[:, 3]
-    C = -R.T @ t
-    return C
-
-
 def find_transformation(extrinsic_matrix):
     """Find the transformation matrix from the extrinsic matrix."""
     R = extrinsic_matrix[:, :3]
     t = extrinsic_matrix[:, 3]
     return lambda x: R @ x + t
-
-
-def coordinate_transform(points, extrinsic_matrix):
-    """Transform multiple points using the given extrinsic matrix.
-
-    Args:
-        points: (N, 3) array of points
-        extrinsic_matrix: (3, 4) transformation matrix
-
-    Returns:
-        (N, 3) array of transformed points
-    """
-
-    points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
-
-    transformed_points = points_homogeneous @ extrinsic_matrix.T
-    return transformed_points
-
-
-def find_stereo_temporal_matches(
-    inliers_matches0, inliers_matches1, matches_between_frames
-):
-    """
-    Find common matches between two consecutive stereo frame pairs.
-
-    Args:
-        inliers_matches0: Matches from first stereo pair
-        inliers_matches1: Matches from second stereo pair
-        matches_between_frames: Matches between consecutive frames
-
-    Returns:
-        Tuple of (common_matches, common_matches_indices), where common_matches_indices contains
-        4-tuples of (left0_idx, right0_idx, left1_idx, right1_idx) for corresponding points
-    """
-
-    inlier0_idx = {m.queryIdx for m in inliers_matches0}
-    inlier1_idx = {m.queryIdx for m in inliers_matches1}
-    common_matches = [
-        m
-        for m in matches_between_frames
-        if m.queryIdx in inlier0_idx and m.trainIdx in inlier1_idx
-    ]
-
-    inlier0_right = {m.queryIdx: m.trainIdx for m in inliers_matches0}
-    inlier1_right = {m.queryIdx: m.trainIdx for m in inliers_matches1}
-
-    common_matches_indices = [
-        (
-            m.queryIdx,
-            inlier0_right[m.queryIdx],
-            m.trainIdx,
-            inlier1_right[m.trainIdx],
-        )
-        for m in common_matches
-    ]
-
-    return common_matches, common_matches_indices
 
 
 def crop_patch(img, center, patch_size):

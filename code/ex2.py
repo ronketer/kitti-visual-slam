@@ -1,6 +1,6 @@
 from utility import read_images, plot_and_save, read_cameras
 from consts import *
-from alg import classify_matches_by_deviation, solveLLST
+from stereo import classify_matches_by_deviation, solveLLST
 import os
 import cv2
 import matplotlib.pyplot as plt

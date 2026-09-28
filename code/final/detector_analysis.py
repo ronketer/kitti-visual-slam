@@ -20,7 +20,7 @@ from utility import (
     plot_detector_repeatability,
 )
 
-from alg import classify_matches_by_deviation
+from stereo import classify_matches_by_deviation
 
 
 def process_stereo_pair_by_detector(
