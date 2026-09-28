@@ -9,6 +9,11 @@ import os
 # Add the code directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from evaluation.trajectory_errors import (
+    calculate_rotation_error_degrees, find_closest_keyframe, calculate_total_distance, calculate_relative_pose_error, calculate_consecutive_relative_errors, calculate_subsequence_relative_errors
+)
+from trajectory import extract_pnp_poses, extract_bundle_poses
+
 from tqdm import tqdm
 from consts import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH, LASTFRAME
 from utility import find_camera_location, read_calibration, parse_gt_line_matrix
@@ -16,131 +21,6 @@ from tracking_database import TrackingDB
 from alg import create_pose_from_extrinsics
 
 
-
-def calculate_rotation_error_degrees(pose1, pose2):
-    """
-    Calculate rotation error between two poses in degrees using Rodrigues representation.
-    
-    Args:
-        pose1: gtsam.Pose3 - First pose
-        pose2: gtsam.Pose3 - Second pose
-    
-    Returns:
-        float: Rotation error in degrees
-    """
-    # Get relative rotation
-    rel_pose = pose1.between(pose2)
-    R = rel_pose.rotation().matrix()
-    
-    # Convert to Rodrigues representation
-    rvec, _ = cv2.Rodrigues(R)
-    angle_rad = np.linalg.norm(rvec)
-    angle_deg = angle_rad * 180.0 / np.pi
-    
-    return angle_deg
-
-def find_closest_keyframe(target_frame, available_keyframes):
-    """Find the closest available keyframe to the target frame"""
-    return min(available_keyframes, key=lambda x: abs(x - target_frame))
-
-def calculate_total_distance(start_frame, end_frame, gt_matrices):
-    """
-    Calculate total distance traveled between two frames based on ground truth.
-    
-    Args:
-        start_frame: Starting frame index
-        end_frame: Ending frame index
-        gt_matrices: List of ground truth matrices
-    
-    Returns:
-        float: Total distance in meters
-    """
-    total_dist = 0.0
-    for i in range(start_frame, end_frame):
-        if i + 1 < len(gt_matrices):
-            pose_i = create_pose_from_extrinsics(gt_matrices[i])
-            pose_i_plus_1 = create_pose_from_extrinsics(gt_matrices[i + 1])
-            rel_pose = pose_i.between(pose_i_plus_1)
-            total_dist += np.linalg.norm(rel_pose.translation())
-    return total_dist
-
-def calculate_relative_pose_error(est_pose_start, est_pose_end, gt_pose_start, gt_pose_end):
-    """
-    Calculate relative pose error between estimated and ground truth poses.
-    
-    Args:
-        est_pose_start: Estimated start pose (gtsam.Pose3)
-        est_pose_end: Estimated end pose (gtsam.Pose3)
-        gt_pose_start: Ground truth start pose (gtsam.Pose3)
-        gt_pose_end: Ground truth end pose (gtsam.Pose3)
-    
-    Returns:
-        tuple: (translation_error_norm, rotation_error_degrees)
-    """
-    # Calculate relative poses
-    est_relative = est_pose_start.between(est_pose_end)
-    gt_relative = gt_pose_start.between(gt_pose_end)
-    
-    # Calculate error between relative poses
-    error_pose = est_relative.between(gt_relative)
-    
-    # Translation error (norm)
-    translation_error = np.linalg.norm(error_pose.translation())
-    
-    # Rotation error (degrees)
-    rotation_error = calculate_rotation_error_degrees(gtsam.Pose3(), error_pose)
-    
-    return translation_error, rotation_error
-
-def extract_pnp_poses(db):
-    """
-    Extract PnP poses from TrackingDB.
-    
-    Args:
-        db: TrackingDB instance
-    
-    Returns:
-        dict: frame_id -> gtsam.Pose3 mapping
-    """
-    print("Extracting PnP poses from TrackingDB...")
-    pnp_poses = {}
-    
-    for frame_id in tqdm(db.all_frames(), desc="Processing PnP poses"):
-        abs_extrinsics = db.get_absolute_extrinsics(frame_id)
-        if abs_extrinsics is not None:
-            # Convert 4x4 extrinsics matrix to gtsam.Pose3
-            pose = create_pose_from_extrinsics(abs_extrinsics)
-            pnp_poses[frame_id] = pose
-    
-    print(f"Extracted {len(pnp_poses)} PnP poses")
-    return pnp_poses
-
-def extract_bundle_poses(windows_graph_list):
-    """
-    Extract Bundle Adjustment poses from bundle results using existing absolute poses.
-    
-    Args:
-        windows_graph_list: List of bundle adjustment results
-    
-    Returns:
-        dict: frame_id -> gtsam.Pose3 mapping
-    """
-    print("Extracting Bundle Adjustment poses...")
-    bundle_poses = {}
-    
-    for window_dict in tqdm(windows_graph_list, desc="Processing bundle windows"):
-        start_kf = window_dict["start_kf"]
-        end_kf = window_dict["end_kf"]
-        
-        # Use the absolute poses directly from the windows graph list
-        abs_start_pose = window_dict["abs_start_pose"]
-        abs_end_pose = window_dict["abs_end_pose"]
-        
-        bundle_poses[start_kf] = abs_start_pose
-        bundle_poses[end_kf] = abs_end_pose
-    
-    print(f"Extracted {len(bundle_poses)} Bundle Adjustment poses")
-    return bundle_poses
 
 def load_loop_closure_results():
     """
@@ -165,104 +45,6 @@ def load_loop_closure_results():
         
     return poses_without_loop_closure, poses_with_loop_closure, kf_pose_keys
         
-def calculate_consecutive_relative_errors(estimated_poses, gt_matrices):
-    """
-    Calculate relative errors for consecutive keyframe pairs.
-    
-    Args:
-        estimated_poses: dict of frame_id -> gtsam.Pose3
-        gt_matrices: List of ground truth matrices
-    
-    Returns:
-        tuple: (translation_errors, rotation_errors, frame_pairs, distances)
-    """
-    frame_ids = sorted(estimated_poses.keys())
-    translation_errors = []
-    rotation_errors = []
-    frame_pairs = []
-    distances = []
-    
-    for i in range(len(frame_ids) - 1):
-        start_frame = frame_ids[i]
-        end_frame = frame_ids[i + 1]
-        
-        # Get estimated poses
-        est_start = estimated_poses[start_frame]
-        est_end = estimated_poses[end_frame]
-        
-        # Get ground truth poses
-        gt_start = create_pose_from_extrinsics(gt_matrices[start_frame])
-        gt_end = create_pose_from_extrinsics(gt_matrices[end_frame])
-        
-        # Calculate relative pose error
-        trans_error, rot_error = calculate_relative_pose_error(est_start, est_end, gt_start, gt_end)
-        
-        # Calculate total distance for normalization
-        total_dist = calculate_total_distance(start_frame, end_frame, gt_matrices)
-        
-        if total_dist > 0:  # Avoid division by zero
-            translation_errors.append((trans_error / total_dist) * 100)  # Convert to percentage
-            rotation_errors.append(rot_error / total_dist)  # degrees per meter
-            frame_pairs.append((start_frame, end_frame))
-            distances.append(total_dist)
-    
-    return translation_errors, rotation_errors, frame_pairs, distances
-
-def calculate_subsequence_relative_errors(estimated_poses, gt_matrices, sequence_length):
-    """
-    Calculate relative errors for subsequences of given length.
-    
-    Args:
-        estimated_poses: dict of frame_id -> gtsam.Pose3
-        gt_matrices: List of ground truth matrices
-        sequence_length: Length of subsequences to analyze
-    
-    Returns:
-        tuple: (translation_errors, rotation_errors, start_frames, distances)
-    """
-    available_keyframes = sorted(estimated_poses.keys())
-    available_keyframes = available_keyframes[:len(available_keyframes)//2]
-    translation_errors = []
-    rotation_errors = []
-    start_frames = []
-    distances = []
-
-    max_start_frame = available_keyframes[-1] - sequence_length
-
-    for start_frame in tqdm(available_keyframes):
-        if start_frame > max_start_frame:
-            break
-
-        end_frame = start_frame + sequence_length
-        closest_end_kf = find_closest_keyframe(end_frame , available_keyframes)
-
-        # Skip if keyframes are too close or the same
-        if start_frame >= closest_end_kf:
-            continue
-        
-        # Get estimated poses
-        est_start = estimated_poses[start_frame]
-        est_end = estimated_poses[closest_end_kf]
-        
-        # Get ground truth poses (use original frame indices)
-        if start_frame < len(gt_matrices) and closest_end_kf < len(gt_matrices):
-            gt_start = create_pose_from_extrinsics(gt_matrices[start_frame])
-            gt_closest_end_kf = create_pose_from_extrinsics(gt_matrices[closest_end_kf])
-
-            # Calculate relative pose error
-            trans_error, rot_error = calculate_relative_pose_error(est_start, est_end, gt_start, gt_closest_end_kf)
-
-            # Calculate total distance for normalization (use original frames)
-            total_dist = calculate_total_distance(start_frame, closest_end_kf, gt_matrices)
-            
-            if total_dist > 0:  # Avoid division by zero
-                translation_errors.append((trans_error / total_dist) * 100)  # Convert to percentage
-                rotation_errors.append(rot_error / total_dist)  # degrees per meter
-                start_frames.append(start_frame)
-                distances.append(total_dist)
-    
-    return translation_errors, rotation_errors, start_frames, distances
-
 def plot_consecutive_relative_errors(pnp_data, bundle_data, pg_data, save_path):
     """
     Plot consecutive relative errors for all methods, with average errors annotated.

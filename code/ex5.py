@@ -1,10 +1,8 @@
+from evaluation.plots import plot_trajectories, plot_trajectory_errors, plot_relative_translation_errors
 from consts import OUTPUT_RELATIVE_PATH, LASTFRAME, GT_POSES_FILE
-from alg import (
-    create_tracking_db,
-    create_stereo_camera,
-    create_pose_from_extrinsics,
-    initialize_factor_graph_in_window,
-)
+from gtsam_geometry import create_stereo_camera, create_pose_from_extrinsics
+from bundle_adjustment import initialize_factor_graph_in_window, run_bundle_adjustment
+from trajectory import bundle_trajectories
 from detector_config import DETECTOR
 from tracking_database import TrackingDB
 from utility import find_camera_location, read_calibration, read_images, crop_patch
@@ -128,56 +126,6 @@ def parse_gt_line(line):
     return mat  # Return full extrinsic matrix [R|t]
 
 
-def plot_trajectories(gt_poses, init_poses, opt_poses, label_every=5, save_path=None):
-    fig, ax = plt.subplots(figsize=(12, 8))
-    last_frame = max(max(init_poses.keys()), max(opt_poses.keys()))
-    ax.plot(
-        gt_poses[:last_frame, 0],
-        gt_poses[:last_frame, 2],
-        "g--",
-        label="Ground Truth",
-        linewidth=1.5,
-        alpha=0.5,
-    )
-
-    init_xz = np.array(
-        [init_poses[i].translation()[[0, 2]] for i in sorted(init_poses)]
-    )
-    opt_xz = np.array([opt_poses[i].translation()[[0, 2]] for i in sorted(opt_poses)])
-    gt_xz = np.array([[gt_poses[i][0], gt_poses[i][2]] for i in sorted(opt_poses)])
-
-    ax.plot(
-        init_xz[:, 0], init_xz[:, 1], "ro", label="Initial Trajectory", markersize=3
-    )
-    ax.plot(
-        opt_xz[:, 0], opt_xz[:, 1], "bo", label="Optimized Trajectory", markersize=3
-    )
-    ax.plot(
-        gt_xz[:last_frame, 0],
-        gt_xz[:last_frame, 1],
-        "go",
-        label="Ground Truth Trajectory",
-        markersize=3,
-    )
-
-    for idx, key in enumerate(sorted(opt_poses)):
-        if idx % label_every == 0:
-            t = opt_poses[key].translation()
-            ax.text(t[0], t[2], str(key), fontsize=8, color="black")
-
-    ax.set_title("Camera Trajectories Comparison (X-Z Plane)")
-    ax.set_xlabel("X Position (m)")
-    ax.set_ylabel("Z Position (m)")
-    ax.legend()
-    ax.grid(True)
-    ax.axis("equal")
-
-    if save_path:
-        plt.savefig(save_path)
-    else:
-        plt.show()
-
-
 def plot_factor_projection(frame_id, measurement, projection, save_path, title):
     left_gray, right_gray = read_images(frame_id)
     left_img = cv2.cvtColor(left_gray, cv2.COLOR_GRAY2RGB)
@@ -238,92 +186,6 @@ def plot_factor_projection(frame_id, measurement, projection, save_path, title):
     axs[1, 1].axis("off")
 
     plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
-    plt.close(fig)
-
-
-def plot_trajectory_errors(gt_centers, init_poses, opt_poses, save_path=None):
-    frame_indices = sorted(init_poses.keys())
-    init_errors = []
-    opt_errors = []
-
-    for i in frame_indices:
-        gt = gt_centers[i]
-        t_init = init_poses[i].translation()
-        t_opt = opt_poses[i].translation()
-        init_errors.append(np.linalg.norm(gt - t_init))
-        opt_errors.append(np.linalg.norm(gt - t_opt))
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(frame_indices, init_errors, "r-", label="Initial Estimate Error")
-    plt.plot(frame_indices, opt_errors, "b-", label="Optimized Error")
-    plt.title("3D Euclidean Distance to Ground Truth Over Frames")
-    plt.xlabel("Frame Index")
-    plt.ylabel("Distance (m)")
-    plt.legend()
-    plt.tight_layout()
-    plt.grid(True)
-
-    if save_path:
-        plt.savefig(save_path)
-    else:
-        plt.show()
-
-
-def plot_relative_translation_errors(
-    gt_matrices, t_rel_init, t_rel_opt, create_pose_from_extrinsics, save_path=None
-):
-    rel_errors_init = []
-    rel_errors_opt = []
-    frame_pairs = sorted(t_rel_init.keys())
-
-    for i, j in frame_pairs:
-        GT_i = create_pose_from_extrinsics(gt_matrices[i])
-        GT_j = create_pose_from_extrinsics(gt_matrices[j])
-        GT_rel = GT_i.between(GT_j)
-
-        e_init = np.linalg.norm(t_rel_init[(i, j)].translation() - GT_rel.translation())
-        e_opt = np.linalg.norm(t_rel_opt[(i, j)].translation() - GT_rel.translation())
-
-        rel_errors_init.append(e_init)
-        rel_errors_opt.append(e_opt)
-
-    frame_indices = [i for (i, _) in frame_pairs]
-    cum_init = np.cumsum(rel_errors_init)
-    cum_opt = np.cumsum(rel_errors_opt)
-    diff = np.array(rel_errors_init) - np.array(rel_errors_opt)
-
-    fig, axs = plt.subplots(3, 1, figsize=(10, 16), layout="constrained")
-
-    # Subplot 1: Relative errors
-    axs[0].plot(frame_indices, rel_errors_init, "r-", label="Initial Relative Error")
-    axs[0].plot(frame_indices, rel_errors_opt, "b-", label="Optimized Relative Error")
-    axs[0].set_title("3D Translation Error of Relative Poses")
-    axs[0].set_xlabel("Start Frame of Window")
-    axs[0].set_ylabel("Distance (m)")
-    axs[0].legend()
-    axs[0].grid(True)
-
-    # Subplot 2: Cumulative errors
-    axs[1].plot(frame_indices, cum_init, "r-", label="Cumulative Initial Error")
-    axs[1].plot(frame_indices, cum_opt, "b-", label="Cumulative Optimized Error")
-    axs[1].set_title("Cumulative Relative Translation Error")
-    axs[1].set_xlabel("Start Frame of Window")
-    axs[1].set_ylabel("Cumulative Distance (m)")
-    axs[1].legend()
-    axs[1].grid(True)
-
-    # Subplot 3: Difference (improvement)
-    axs[2].plot(frame_indices, diff, "g-", label="Initial - Optimized Error")
-    axs[2].set_title("Improvement in Relative Translation Error")
-    axs[2].set_xlabel("Start Frame of Window")
-    axs[2].set_ylabel("Error Difference (m)")
-    axs[2].legend()
-    axs[2].grid(True)
-
-    if save_path:
-        plt.savefig(save_path)
-    else:
-        plt.show()
     plt.close(fig)
 
 
@@ -489,82 +351,21 @@ def q3(db, K):
 
 
 def q4(db, K):
+    """Coursework wrapper: run reusable BA, then evaluate and plot its results."""
     gt_matrices = []
     with open(GT_POSES_FILE, "r") as f:
         gt_matrices = [parse_gt_line(line) for line in f.readlines()[: LASTFRAME + 1]]
     gt_centers = np.array([find_camera_location(m) for m in gt_matrices])
 
-    window_selector = WindowSelector(db)
-    windows = []
-    while True:
-        window = window_selector.next_window()
-        if window is None:
-            break
-        windows.append(window)
+    windows_graph_list = run_bundle_adjustment(db, K)
+    (init_estimate_global_poses, optimizied_global_poses,
+     t_rel_init, t_rel_opt) = bundle_trajectories(windows_graph_list)
 
-    max_iterations = len(windows)
-    windows_graph_list = []
-    T_global = gtsam.Pose3()
-    optimizied_global_poses = {0: T_global}
-    init_estimate_global_poses = {0: T_global}
-    t_rel_init = {}
-    t_rel_opt = {}
-
-    for i in tqdm(range(max_iterations)):
-        start_kf, end_kf = windows[i]
-        (
-            graph,
-            initialEstimate,
-            pose_keys,
-            point_keys,
-            tracks,
-            frames,
-            prior_factor,
-            _,
-        ) = initialize_factor_graph_in_window(db, start_kf, end_kf, K)
-        T_rel_init = initialEstimate.atPose3(pose_keys[end_kf])
-        T_start_init = init_estimate_global_poses[start_kf]
-        T_abs_init = T_start_init.compose(T_rel_init)
-        init_estimate_global_poses[end_kf] = T_abs_init
-        t_rel_init[(start_kf, end_kf)] = T_rel_init
-        init_error = graph.error(initialEstimate)
-        optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initialEstimate)
-        result = optimizer.optimize()
-        optimized_error = graph.error(result)
-        # validate that the optimized error is lower than the initial error 50%
-        if optimized_error * 2 > init_error:
-            raise ValueError(
-                f"Optimized error {optimized_error} is not significantly lower than initial error {init_error}."
-            )
-
-        T_rel_opt = result.atPose3(pose_keys[end_kf])
-        T_start_opt_abs = optimizied_global_poses[start_kf]
-        T_end_opt_asb = T_start_opt_abs.compose(T_rel_opt)
-        optimizied_global_poses[end_kf] = T_end_opt_asb
-        t_rel_opt[(start_kf, end_kf)] = T_rel_opt
-
-        windows_graph_list.append(dict())
-        windows_graph_list[-1]["start_kf"] = start_kf
-        windows_graph_list[-1]["end_kf"] = end_kf
-        windows_graph_list[-1]["graph"] = graph
-        windows_graph_list[-1]["initialEstimate"] = initialEstimate
-        windows_graph_list[-1]["pose_keys"] = pose_keys
-        windows_graph_list[-1]["point_keys"] = point_keys
-        windows_graph_list[-1]["tracks"] = tracks
-        windows_graph_list[-1]["frames"] = frames
-        windows_graph_list[-1]["result"] = result
-        windows_graph_list[-1]["abs_start_pose"] = T_start_opt_abs
-        windows_graph_list[-1]["abs_end_pose"] = T_end_opt_asb
-
-        if i == max_iterations - 1:
-            error = prior_factor.error(result)
-            print(
-                f"Anchoring factor error for last window ({start_kf}, {end_kf}): {error}"
-            )
-            bundle_first_frame = optimizied_global_poses[start_kf]
-            print(
-                f"Optimized position of first frame in last bundle ({start_kf}): {bundle_first_frame.translation()}"
-            )
+    if windows_graph_list:
+        last = windows_graph_list[-1]
+        error = last["graph"].at(0).error(last["result"])
+        print(f"Anchoring factor error for last window ({last['start_kf']}, {last['end_kf']}): {error}")
+        print(f"Optimized position of first frame in last bundle ({last['start_kf']}): {last['abs_start_pose'].translation()}")
 
     plot_trajectories(
         gt_centers,

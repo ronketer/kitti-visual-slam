@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from geometry import compose_extrinsics, find_camera_location, coordinate_transform
 import cv2
-from config import DEFAULT_PATHS
+from gtsam_geometry import read_calibration
 from dataset import read_images, read_cameras, parse_gt_line_matrix
 from stereo import find_stereo_temporal_matches
 from motion import rodriguez_to_mat
@@ -42,23 +42,6 @@ def plot_and_save(img, title, output_path, figsize, dpi):
     plt.tight_layout()
     plt.savefig(output_path, bbox_inches="tight", dpi=dpi)
     plt.close()
-
-
-def read_calibration(calibration=None, paths=DEFAULT_PATHS):
-    """Read camera calibration parameters from the dataset."""
-    from gtsam import Cal3_S2Stereo
-
-    K_mat, M1, M2 = read_cameras(paths) if calibration is None else calibration
-    fx, fy, skew, cx, cy, basline = (
-        K_mat[0, 0],
-        K_mat[1, 1],
-        K_mat[0, 1],
-        K_mat[0, 2],
-        K_mat[1, 2],
-        M2[0, 3],
-    )
-    K = Cal3_S2Stereo(fx, fy, skew, cx, cy, -basline)
-    return K
 
 
 def compute_camera_to_camera_transform(source_cam_extrinsic, target_cam_extrinsic):

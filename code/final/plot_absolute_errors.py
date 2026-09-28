@@ -9,93 +9,14 @@ import os
 # Add the code directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from evaluation.trajectory_errors import calculate_rotation_error_degrees, calculate_absolute_errors
+from trajectory import extract_pnp_poses, recompose_bundle_poses as extract_bundle_poses
+
 from tqdm import tqdm
 from consts import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH, LASTFRAME
 from utility import find_camera_location, read_calibration, parse_gt_line_matrix
 from tracking_database import TrackingDB
 from alg import create_pose_from_extrinsics
-
-def calculate_rotation_error_degrees(pose1, pose2):
-    """
-    Calculate rotation error between two poses in degrees using Rodrigues representation.
-    
-    Args:
-        pose1: gtsam.Pose3 - First pose
-        pose2: gtsam.Pose3 - Second pose
-    
-    Returns:
-        float: Rotation error in degrees
-    """
-    # Get relative rotation
-    rel_pose = pose1.between(pose2)
-    R = rel_pose.rotation().matrix()
-    
-    # Convert to Rodrigues representation
-    rvec, _ = cv2.Rodrigues(R)
-    angle_rad = np.linalg.norm(rvec)
-    angle_deg = angle_rad * 180.0 / np.pi
-    
-    return angle_deg
-
-def extract_pnp_poses(db):
-    """
-    Extract PnP poses from TrackingDB.
-    
-    Args:
-        db: TrackingDB instance
-    
-    Returns:
-        dict: frame_id -> gtsam.Pose3 mapping
-    """
-    print("Extracting PnP poses from TrackingDB...")
-    pnp_poses = {}
-    
-    for frame_id in tqdm(db.all_frames(), desc="Processing PnP poses"):
-        abs_extrinsics = db.get_absolute_extrinsics(frame_id)
-        if abs_extrinsics is not None:
-            # Convert 4x4 extrinsics matrix to gtsam.Pose3
-            pose = create_pose_from_extrinsics(abs_extrinsics)
-            pnp_poses[frame_id] = pose
-    
-    print(f"Extracted {len(pnp_poses)} PnP poses")
-    return pnp_poses
-
-def extract_bundle_poses(windows_graph_list):
-    """
-    Extract Bundle Adjustment poses from bundle results.
-    
-    Args:
-        windows_graph_list: List of bundle adjustment results
-    
-    Returns:
-        dict: frame_id -> gtsam.Pose3 mapping
-    """
-    print("Extracting Bundle Adjustment poses...")
-    bundle_poses = {}
-    
-    # Start with identity pose at frame 0
-    bundle_poses[0] = gtsam.Pose3()
-    current_pose = gtsam.Pose3()
-    
-    for window_dict in tqdm(windows_graph_list, desc="Processing bundle windows"):
-        start_kf = window_dict["start_kf"]
-        end_kf = window_dict["end_kf"]
-        result = window_dict["result"]
-        pose_keys = window_dict["pose_keys"]
-        
-        # Get relative pose from bundle result
-        if start_kf in pose_keys and end_kf in pose_keys:
-            relative_pose = result.atPose3(pose_keys[end_kf])
-            
-            # Update current pose (compose with relative pose)
-            if start_kf in bundle_poses:
-                current_pose = bundle_poses[start_kf]
-            
-            absolute_pose = current_pose.compose(relative_pose)
-            bundle_poses[end_kf] = absolute_pose
-    
-    print(f"Extracted {len(bundle_poses)} Bundle Adjustment poses")
-    return bundle_poses
 
 def load_loop_closure_results():
     """
@@ -127,44 +48,6 @@ def load_loop_closure_results():
     except Exception as e:
         print(f"Error loading loop closure results: {e}")
         return {}, {}, {}
-
-def calculate_absolute_errors(estimated_poses, gt_matrices):
-    """
-    Calculate absolute translation and rotation errors for estimated poses.
-    
-    Args:
-        estimated_poses: dict of frame_id -> gtsam.Pose3
-        gt_matrices: List of ground truth matrices
-    
-    Returns:
-        tuple: (translation_errors, rotation_errors, frame_ids)
-    """
-    frame_ids = sorted(estimated_poses.keys())
-    translation_errors = {'x': [], 'y': [], 'z': [], 'norm': []}
-    rotation_errors = []
-    
-    for frame_id in frame_ids:
-        # Get estimated pose
-        estimated_pose = estimated_poses[frame_id]
-        estimated_translation = estimated_pose.translation()
-        
-        # Get ground truth pose
-        gt_matrix = gt_matrices[frame_id]
-        gt_pose = create_pose_from_extrinsics(gt_matrix)
-        gt_translation = gt_pose.translation()
-        
-        # Calculate translation errors
-        translation_error = estimated_translation - gt_translation
-        translation_errors['x'].append(abs(translation_error[0]))
-        translation_errors['y'].append(abs(translation_error[1]))
-        translation_errors['z'].append(abs(translation_error[2]))
-        translation_errors['norm'].append(np.linalg.norm(translation_error))
-        
-        # Calculate rotation error
-        rotation_error = calculate_rotation_error_degrees(estimated_pose, gt_pose)
-        rotation_errors.append(rotation_error)
-    
-    return translation_errors, rotation_errors, frame_ids
 
 def plot_absolute_errors():
     """

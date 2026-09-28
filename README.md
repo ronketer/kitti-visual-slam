@@ -3,12 +3,12 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-5C3EE8?logo=opencv&logoColor=white)
 ![GTSAM](https://img.shields.io/badge/GTSAM-4.x-orange)
-![NumPy](https://img.shields.io/badge/NumPy-1.x-013243?logo=numpy&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)
 
-Full stereo visual odometry pipeline built from scratch — feature tracking, RANSAC-PnP motion estimation, windowed bundle adjustment, and pose graph loop closure — evaluated against KITTI ground truth over 2,600 frames.
+Stereo visual odometry with custom feature tracking and RANSAC-PnP orchestration, windowed bundle adjustment, and pose graph optimization using a ground-truth endpoint prior — developed on KITTI Sequence 05 over 2,600 frames.
 
 ![Trajectory comparison: Ground Truth vs PnP vs Bundle Adjustment vs Pose Graph](results/trajectory_comparison.png)
-*Camera trajectory comparison on KITTI Sequence 05 (X-Z plane). Each stage reduces drift.*
+*Historical camera trajectory comparison on KITTI Sequence 05 (X-Z plane).*
 
 ## Results
 
@@ -16,9 +16,15 @@ Full stereo visual odometry pipeline built from scratch — feature tracking, RA
 |---|---|
 | PnP (RANSAC) | 3.2 m |
 | + Windowed Bundle Adjustment | 1.1 m |
-| + Pose Graph + Loop Closure | **0.9 m** |
+| + Pose Graph + Ground-Truth Endpoint Prior | **0.9 m** |
 
-**3.5× error reduction** end-to-end. Metrics computed over all 230 keyframe windows across the full 2,600-frame sequence.
+These are historical reported results, not newly reproduced regression results.
+The final stage uses ground truth as an estimation constraint. The metric
+implementations retain their original sampling policies, including half-sequence
+selection for subsequence plots; the summary figures' provenance still needs
+verification against recovered checkpoints. The aggregation and frame coverage
+behind this table have not been verified; it should not be read as a reproduced
+standard KITTI benchmark.
 
 | | |
 |---|---|
@@ -27,26 +33,43 @@ Full stereo visual odometry pipeline built from scratch — feature tracking, RA
 
 ## Pipeline
 
-1. **AKAZE stereo matching** — detect ~1,200 keypoints/frame, filter by epipolar constraint (y-deviation < 2 px), triangulate to 8,000–12,000 3D points
+1. **AKAZE stereo matching** — filter matches by vertical deviation < 2 px and positive disparity ≥ 2 px, then triangulate with OpenCV. The handwritten SVD triangulator is also retained for the coursework comparison.
 2. **RANSAC-PnP motion estimation** — 4-point PnP with adaptive iteration count (99.9% confidence), refined on all inliers
-3. **Windowed bundle adjustment** — GTSAM `GenericStereoFactor3D` over 5–20-frame windows selected by feature count, track overlap, and translation criteria
-4. **Pose graph + loop closure** — relative pose constraints with covariance extracted from BA marginals, GTSAM ISAM2 optimization with loop detection
+3. **Windowed bundle adjustment** — GTSAM stereo factors in independently optimized windows, selected using feature count, track overlap, and translation criteria. Default endpoint separations are 5–20 frames; bounds are inclusive and the final window may be shorter.
+4. **Pose graph with endpoint prior** — relative constraints from BA marginals and batch GTSAM Levenberg–Marquardt optimization. The historical classroom experiment supplies a tight prior from the final ground-truth pose; automatic visual loop detection is not implemented.
 
 ## Project Structure
+
+- [Architecture and data flow](docs/architecture.md): module responsibilities, algorithm ownership, coordinate contracts and an interview reading order.
+- [Coursework and report map](code/README.md): historical entry points, compatibility wrappers and remaining structural work.
+- [Validation and correctness concerns](docs/validation.md): what has been tested, GTSAM-dependent checks and issues excluded from structural cleanup.
+
+Reusable implementation lives in the flat, installable `kitti_slam/` package.
+Internal imports are relative and never depend on coursework modules. `code/`
+retains exercises, historical report scripts, and small compatibility modules.
+The compatibility modules alias the canonical modules, so there is one copy of
+each implementation and its state.
 
 | Path | Contents |
 |---|---|
 | `code/ex1.py` – `ex5.py` | Sequential exercises building up the pipeline |
-| `code/pose_graph_loop_closure.py` | Stage 4: pose graph optimization |
-| `code/stereo.py` | Stereo filtering, OpenCV and handwritten SVD triangulation, four-view correspondences |
-| `code/motion.py` | Custom adaptive RANSAC, P3P hypothesis generation, iterative PnP refinement |
-| `code/supporters.py` | Four-view reprojection validation and supporter classification |
-| `code/tracking.py` | Canonical frame loop: stereo processing, motion estimation, track updates, and pose accumulation |
-| `code/alg.py` | BA construction and compatibility exports for extracted frontend/tracking functions |
-| `code/tracking_database.py` | `TrackingDB` — central data structure mapping frames ↔ tracks |
-| `code/window_selector.py` | Pluggable keyframe selection criteria for BA windows |
+| `kitti_slam/pose_graph.py` | BA covariance/relative-pose extraction, explicit endpoint prior, batch pose graph optimization |
+| `code/pose_graph_loop_closure.py` | Historical report plots, persistence, and compatibility wrappers |
+| `kitti_slam/stereo.py` | Stereo filtering, OpenCV and handwritten SVD triangulation, four-view correspondences |
+| `kitti_slam/motion.py` | Custom adaptive RANSAC, P3P hypothesis generation, iterative PnP refinement |
+| `kitti_slam/supporters.py` | Four-view reprojection validation and supporter classification |
+| `kitti_slam/tracking.py` | Canonical frame loop: stereo processing, motion estimation, track updates, and pose accumulation |
+| `kitti_slam/bundle_adjustment.py` | BA graph construction and window optimization, returning checkpoint-compatible results |
+| `kitti_slam/gtsam_geometry.py` | GTSAM calibration, pose conversion, and stereo backprojection |
+| `kitti_slam/trajectory.py` | Trajectory extraction from window results, without plotting |
+| `kitti_slam/evaluation/` | Shared trajectory metrics and report plots |
+| `kitti_slam/checkpoints.py` | Trusted checkpoint loading, schema checks, atomic writes, upstream digest checks |
+| `code/alg.py` | Compatibility exports for the original coursework imports |
+| `kitti_slam/tracking_database.py` | `TrackingDB` — central data structure mapping frames ↔ tracks |
+| `kitti_slam/window_selector.py` | Pluggable keyframe selection criteria for BA windows |
 | `code/final/` | Analysis scripts generating the plots in `results/` |
 | `results/` | Key output plots (committed) |
+| `artifacts/sequence-05/checkpoints/` | New pipeline outputs (ignored by Git) |
 | `dataset/` | KITTI Sequence 05 — not included, see Setup |
 
 ## Setup
@@ -54,27 +77,99 @@ Full stereo visual odometry pipeline built from scratch — feature tracking, RA
 ```bash
 git clone https://github.com/ronketer/kitti-visual-slam
 cd kitti-visual-slam
-pip install -r requirements.txt
+pip install -e ".[plotting]"
+# On a platform with a compatible GTSAM package, add optimization support:
+pip install -e ".[optimization]"
 ```
+
+The base install (`pip install -e .`) needs only NumPy, OpenCV, and tqdm.
+The `plotting` extra enables historical reports and the complete non-GTSAM test
+suite. `requirements.txt` installs the editable package with that extra; it no
+longer requires GTSAM on Windows. No solver substitute is installed.
+
+`python -m kitti_slam`, the installed `kitti-slam` command, and the legacy
+`python run_pipeline.py` entry point call the same pipeline. Editable installs
+keep repository-relative dataset/artifact defaults even from another working
+directory. For a wheel installation, set `KITTI_SLAM_ROOT` to your data/output
+workspace; otherwise defaults are relative to the working directory at import
+time. `ProjectPaths` still supports explicit dataset locations in Python.
+
+The distribution includes the reusable package and a top-level
+`tracking_database` compatibility module. Tracking classes keep their historical
+pickle module names, so the package reads existing trusted checkpoints and new
+checkpoints retain those class paths. Coursework scripts, dataset files, report
+PDFs, and generated artifacts are not included in the wheel.
 
 **Dataset**: Download [KITTI Odometry Sequence 05](https://www.cvlibs.net/datasets/kitti/eval_odometry.php) (grayscale images + ground truth poses) and place it at `dataset/sequences/05/` and `dataset/poses/05.txt`.
 
 ```bash
 # Run the full pipeline (auto-resumes from checkpoints)
-python run_pipeline.py
+python -m kitti_slam
 
 # Re-run from scratch, ignoring cached results
-python run_pipeline.py --force
+python -m kitti_slam --force
+
+# Run only the GTSAM-independent tracking stage
+python -m kitti_slam --through tracking
+
+# Check existing outputs without running estimation
+python -m kitti_slam --check
+
+# Keep another run separate
+python -m kitti_slam --output-dir artifacts/my-run/checkpoints
 ```
 
-Individual exercises can also be run directly:
+Historical exercise entry points include:
 
 ```bash
 python code/ex1.py   # feature detection & matching
 python code/ex5.py   # bundle adjustment
 ```
 
-All scripts must be run from the **repo root**.
+The pipeline runner resolves default paths relative to the repository. Historical
+exercise/report scripts generally expect the **repo root** and may require
+historical payloads, GTSAM, or entry-point repairs. See the
+[coursework execution notes](code/README.md#execution-and-preservation-rules)
+before using them for report reproduction.
+
+### Checkpoints and project artifacts
+
+New pipeline runs write to `artifacts/sequence-05/checkpoints/`. Checkpoint filenames
+and pickle payloads retain the historical formats. `TrackingDB`'s serializer and
+class import paths are unchanged. BA and pose graph outputs have `.pkl.json`
+sidecars containing SHA-256 digests of their own file and their upstream checkpoint.
+Rebuilding a stage also rebuilds its downstream stages. A later invocation rejects
+stale or missing dependency metadata instead of silently resuming.
+
+Resume checks deserialize trusted local pickles and check required fields. They
+reject Git LFS pointers, truncated/unreadable pickles, and wrong stage containers.
+These are **structural checks**, not numerical validation. They do not fingerprint
+source code, calibration, dataset images, thresholds, or library versions. After
+changing these inputs, use a new output directory or `--force`. RANSAC randomness
+is unchanged. Atomic replacement prevents a failed serialization from replacing
+an existing checkpoint; a failure between payload and sidecar publication is
+detected on the next resume.
+
+`--check` returns a nonzero exit status for missing or unusable selected outputs
+and writes nothing. Checking actual GTSAM objects requires a compatible GTSAM
+installation. A normal full run checks GTSAM availability before starting tracking.
+Pickles are executable serialization: only check/load trusted project artifacts.
+
+Existing artifacts stay in place:
+
+| Location | Role |
+|---|---|
+| `code/output/` | Historical checkpoints and exercise outputs; some checkpoints are LFS pointers, not data |
+| `code/final/` | Historical analysis/report scripts and their existing outputs |
+| `results/` | Curated historical figures linked by this README |
+| `slam_final_submission.pdf` | Original submission report |
+| `artifacts/<run>/checkpoints/` | New generated checkpoints and dependency sidecars |
+| `artifacts/<run>/plots/`, `artifacts/<run>/metrics/` | Intended destinations for future explicit evaluation runs; not yet wired to historical scripts |
+
+For example, `python -m kitti_slam --check --output-dir code/output` reports
+the historical LFS placeholders without running any estimation. Restored legacy
+payloads remain loadable by the existing report scripts and checkpoint reader;
+automatic BA/pose-graph resume additionally requires the new dependency sidecars.
 
 ### Native Windows and incremental refactoring
 
@@ -95,17 +190,18 @@ Run the small, dataset-independent tests with:
 python -B -m unittest discover -s tests -v
 ```
 
-`code/config.py` defines repository-relative default locations, independent of
-the working directory. The pipeline runner uses these defaults. Historical
+`kitti_slam/config.py` defines repository-relative defaults for source/editable
+installs, with the wheel workspace behavior described above. The pipeline runner uses these dataset defaults and the
+separate artifacts directory above. Historical
 exercise/report scripts may still contain working-directory-relative paths.
 `ProjectPaths` and the tracking function also allow explicit inputs, for example
-with `code/` on the Python import path:
+after installing the package:
 
 ```python
 from pathlib import Path
-from config import ProjectPaths
-from detector_config import create_detector_and_matcher
-from tracking import build_tracking_database
+from kitti_slam.config import ProjectPaths
+from kitti_slam.detector_config import create_detector_and_matcher
+from kitti_slam.tracking import build_tracking_database
 
 paths = ProjectPaths(dataset_root=Path("D:/KITTI"), sequence="05")
 detector, matcher = create_detector_and_matcher("AKAZE")
@@ -119,25 +215,18 @@ Nonzero starting frames are explicitly rejected because the current tracking
 database assumes zero-based frame IDs. The reader functions remain available
 through `utility.py` for existing callers.
 
-The extracted `stereo`, `motion`, and `supporters` modules also import without
-Matplotlib. Existing imports from `alg.py`, `utility.py`, and the old motion
-module filenames remain supported through re-exports. Identical exercise
-helpers share these implementations; the historical stereo policy and timed
-exercise RANSAC loop remain distinct. This extraction preserves the original
-algorithm bodies, including existing thresholds, refinement behavior, and
-failure cases. The tests include a seeded synthetic RANSAC/PnP case with
-outliers in the right-camera observations.
+### Compatibility and numerical behavior
 
-`tracking.build_tracking_database()` is shared by the pipeline and tracking
-analysis. `collect_diagnostics=True` records temporal-match, four-view-match,
-and RANSAC-supporter counts in the existing database fields. It defaults to
-`False`, preserving the original pipeline's zero counts. The report's
-`updated_create_tracking_db()` wrapper enables diagnostics, while
-`alg.create_tracking_db` remains a compatibility alias. `TrackingDB`, `Link`,
-and their pickle format/import paths are unchanged. Synthetic three-frame
-tests cover track creation, continuation, competing matches, pose composition,
-and checkpoint compatibility; existing LFS pointer files have not been loaded
-as numerical regression baselines.
+Legacy coursework imports and tracking pickle class paths remain supported.
+`collect_diagnostics=True` records match/supporter counts in tracking; the default
+preserves historical zero counts. The estimation implementations retain their
+existing thresholds, window policies, BA gates, covariance formula, pose
+composition and checkpoint keys.
+
+See [architecture.md](docs/architecture.md) for detailed contracts, including the
+meaning of the legacy `poses_without_loop_closure` key and the two retained BA
+trajectory extraction variants. See [validation.md](docs/validation.md) for
+regression coverage and mathematical concerns that require separate work.
 
 ## Report
 
