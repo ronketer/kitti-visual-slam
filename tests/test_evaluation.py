@@ -10,11 +10,9 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
-from evaluation import trajectory_errors as metrics
-import trajectory
-
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from kitti_slam.evaluation import trajectory_errors as metrics
+from kitti_slam import trajectory
 class EvaluationTests(unittest.TestCase):
     def test_rotation_metric_uses_angle_in_degrees(self):
         rotation = np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]])

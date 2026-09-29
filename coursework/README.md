@@ -1,28 +1,38 @@
-# Coursework source
+# Coursework
 
-The original progression is preserved here: `ex1.py` feature matching,
-`ex2.py` triangulation comparison, `ex3.py`/`ex3code/` motion and timed VO,
-`ex4.py` tracking analysis, and `ex5.py` BA diagnostics/reporting.
+These source-checkout programs preserve the course progression and educational
+experiments. Reusable estimation lives in `kitti_slam`.
 
-Reusable algorithms live in [`kitti_slam/`](../kitti_slam/). Exercises call those
-implementations directly. `_legacy_alg.py` retains the original wildcard export
-surface for exercises 1 and 3; it implements no algorithms. The exercise 3
-detector imports now address the canonical package explicitly.
+| Module | Purpose |
+|---|---|
+| `ex1.py` | Feature detection, descriptor matching and ratio-test demonstrations |
+| `ex2.py` | Stereo geometry and handwritten SVD versus OpenCV triangulation |
+| `ex3.py` | Stereo preparation through timed sequence visual odometry |
+| `ex4.py` | Tracking statistics and diagnostics |
+| `ex5.py` | BA diagnostics and exercise/report visualizations |
 
-From the checkout, use module entry points such as `python -m coursework.ex2`.
-Old commands such as `python code/ex2.py` forward to the same implementation.
-These are source-checkout programs, not part of the runtime wheel. Imports have
-been checked where optional dependencies permit; running a main can load KITTI,
-perform a long run and overwrite historical outputs. Exercise 5 execution
-requires real GTSAM and checkpoint payloads. No exercise was run end to end as
-part of the source migration.
+Exercise 3 is one sectioned module:
 
-Historical differences are deliberate: exercise stereo does not apply the same
-disparity filter as the runtime, and the timed RANSAC/VO path is an experiment,
-not another tracking-database implementation. Their algorithm bodies and
-plotting policies have not been replaced. Global detector creation and RNG
-seeding in some demonstrations remain historical behavior.
+| Exercise section | Descriptive implementation |
+|---|---|
+| 3.1 | `prepare_stereo_matches` |
+| 3.2 | `match_temporal_descriptors` |
+| 3.3 | Canonical `solve_pnp_and_locations` from `kitti_slam.motion` |
+| 3.4 | `classify_timed_supporters` |
+| 3.5 | `run_timed_ransac`, `estimate_timed_motion`, canonical `refine_pose` |
+| 3.6 | `FrameState`, `process_timed_stereo_pair`, `run_sequence_odometry` |
 
-Paths come from `reports.paths`, backed by `ProjectPaths` defaults. Explicit
-legacy GT/checkpoint literals now resolve through these paths. Compatibility
-artifacts stay in their original directories; see [artifacts](../docs/artifacts.md).
+`OperationTimer` and local plotting functions support the experiment. The exercise
+stereo path deliberately has no runtime disparity filter; timed RANSAC/supporter
+loops include timing instrumentation for the experiment.
+
+Run from the checkout, for example `python -m coursework.ex3`. This performs the
+two-frame demonstration **and a sequence run**; importing does not run that work.
+Exercise main programs may load KITTI, take substantial time, and require real
+checkpoint payloads/GTSAM. End-to-end reproduction with the current code has not been validated.
+Some demonstrations retain detector initialization and RNG seeding at import.
+
+Shared paths/plotting helpers live in `reports`. Figures go to
+`artifacts/coursework/`; reusable pipeline checkpoints go to
+`artifacts/sequence-05/checkpoints/`. Original output evidence is preserved in
+`results/historical/`.

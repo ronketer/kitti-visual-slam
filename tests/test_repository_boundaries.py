@@ -1,9 +1,8 @@
-"""Migration checks: imports, preserved evaluation policies, and window boundaries."""
+"""Repository contracts: import direction, evaluation policies and window boundaries."""
 
 import ast
 import importlib
 import io
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -16,7 +15,7 @@ from unittest.mock import Mock, mock_open, patch
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "code"), str(ROOT)]
+sys.path.insert(0, str(ROOT))
 from kitti_slam.evaluation import projection_errors as projection
 from kitti_slam.window_selector import WindowSelector, WindowParameters, TrackOverlapCriterion
 
@@ -36,17 +35,6 @@ class RepositoryBoundaryTests(unittest.TestCase):
         reader.assert_called_once_with(paths.poses_file, "r")
         np.testing.assert_array_equal(result, [[-2., -3., -4.]])
 
-    def test_legacy_script_dispatch_does_not_change_entry_points(self):
-        entries = {
-            "code/ex3.py": "coursework.ex3",
-            "code/ex5.py": "coursework.ex5",
-            "code/final/plot_relative_errors.py": "reports.plot_relative_errors",
-            "code/pose_graph_loop_closure.py": "reports.pose_graph_loop_closure",
-        }
-        for path, target in entries.items():
-            with self.subTest(path=path), patch("_compat.runpy.run_module") as execute:
-                runpy.run_path(str(ROOT / path), run_name="__main__")
-                execute.assert_called_once_with(target, run_name="__main__")
 
     def test_projection_metric_is_mean_of_two_image_distances(self):
         # Left error 5, right error 4: not a 3D residual norm or RMS.
@@ -54,8 +42,6 @@ class RepositoryBoundaryTests(unittest.TestCase):
         self.assertEqual(actual, 4.5)
         for name in ("plot_projection_vs_distance", "plot_median_projection_errors"):
             canonical = importlib.import_module("reports." + name)
-            legacy = importlib.import_module("final." + name)
-            self.assertIs(legacy, canonical)
             self.assertIs(canonical.calculate_projection_error, projection.calculate_projection_error)
 
     def test_projection_aggregation_keeps_frame_distance_and_missing_values_policy(self):
@@ -102,7 +88,7 @@ class Block(importlib.abc.MetaPathFinder):
         if fullname.split('.')[0] in {{'gtsam', 'alg', 'utility', 'consts', 'ex3code'}}:
             raise AssertionError(fullname)
 sys.meta_path.insert(0, Block())
-for name in {['coursework.ex'+str(i) for i in range(1,5)] + ['coursework.ex3code.q'+str(i) for i in range(1,7)] + ['reports.'+p.stem for p in (ROOT/'reports').glob('*.py') if p.stem not in {'__init__','pose_graph_loop_closure'}]!r}:
+for name in {['coursework.ex'+str(i) for i in range(1,5)] + ['reports.'+p.stem for p in (ROOT/'reports').glob('*.py') if p.stem not in {'__init__','pose_graph_analysis'}]!r}:
     importlib.import_module(name)
 from reports.paths import GT_POSES_FILE
 assert GT_POSES_FILE == {str(ROOT/'dataset/poses/05.txt')!r}

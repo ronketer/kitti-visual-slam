@@ -1,4 +1,4 @@
-"""Canonical imports and legacy checkpoint compatibility across the package move."""
+"""Package imports and historical tracking-checkpoint compatibility."""
 
 import ast
 import importlib
@@ -9,19 +9,10 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "code"), str(ROOT)]
+sys.path.insert(0, str(ROOT))
 
 
 class PackageTests(unittest.TestCase):
-    def test_legacy_modules_share_canonical_state(self):
-        names = ("config", "dataset", "geometry", "stereo", "motion", "supporters",
-                 "tracking", "tracking_database", "window_selector", "gtsam_geometry",
-                 "bundle_adjustment", "pose_graph", "trajectory", "checkpoints",
-                 "detector_config", "evaluation.trajectory_errors", "evaluation.plots")
-        for name in names:
-            with self.subTest(module=name):
-                self.assertIs(importlib.import_module(name), importlib.import_module("kitti_slam." + name))
-        self.assertIs(importlib.import_module("run_pipeline"), importlib.import_module("kitti_slam.pipeline"))
 
     def test_canonical_imports_and_old_pickle_without_code_on_path(self):
         script = f'''
@@ -42,7 +33,7 @@ legacy = b'ctracking_database\\nLink\\n(F5.0\\nF4.0\\nF3.0\\ntR.'
 link = pickle.loads(legacy)
 assert type(link) is Link and (link.x_left, link.x_right, link.y) == (5., 4., 3.)
 assert b'tracking_database' in pickle.dumps(link)
-assert all({str(ROOT / 'code')!r} != entry for entry in sys.path)
+assert {str(ROOT / 'code')!r} not in sys.path
 '''
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([sys.executable, "-I", "-B", "-c", script], cwd=directory,

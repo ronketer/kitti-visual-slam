@@ -1,5 +1,6 @@
+from reports.paths import CHECKPOINT_DIR
 from reports.paths import GT_POSES_FILE
-from reports.paths import OUTPUT_RELATIVE_PATH
+from reports.paths import COURSEWORK_OUTPUT_DIR
 from kitti_slam.tracking import build_tracking_database as create_tracking_db
 import numpy as np
 import cv2
@@ -10,7 +11,7 @@ from kitti_slam.geometry import compose_extrinsics
 from kitti_slam.geometry import coordinate_transform
 from kitti_slam.tracking_database import TrackingDB
 
-OUTPUT_PATH = OUTPUT_RELATIVE_PATH + "tracking_with_geometric_validation_without_far_tracks"
+OUTPUT_PATH = CHECKPOINT_DIR + "tracking_with_geometric_validation_without_far_tracks"
 
 def q42(db):
     all_tracks = db.all_tracks()
@@ -88,7 +89,7 @@ def q43(db):
 
     plt.tight_layout()
     plt.suptitle(f"Track #{track_id}, Length: {len(frames)}", y=1.02)
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex4_q43.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex4_q43.png")
     # plt.show()
 
 
@@ -109,7 +110,7 @@ def q44(db):
     ax.plot(list(frame_id_to_num_outgoing_tracks.keys()),
             list(frame_id_to_num_outgoing_tracks.values()))
     ax.axhline(mean_num_outgoing_tracks, color='red', linestyle='--', label='Mean')
-    plt.savefig(OUTPUT_RELATIVE_PATH+"ex4_q44.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR+"ex4_q44.png")
     # plt.show()
 
 def q45(db):
@@ -128,7 +129,7 @@ def q45(db):
     ax.set_ylabel("Percentage")
     ax.set_title("Inliers percentage")
     ax.plot(list(frame_id_to_percentage.keys()), list(frame_id_to_percentage.values()))
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex4_q45.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex4_q45.png")
     # plt.show()
 
 
@@ -143,7 +144,7 @@ def q46(db):
     ax.set_title("Track length histogram")
     ax.set_yscale("log")
     ax.set_xticks(np.arange(0, max(track_lengths) + 10, 10))
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex4_q46.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex4_q46.png")
     # plt.show()
 
 def q47(db):
@@ -197,7 +198,7 @@ def q47(db):
     ax.set_xlabel("distance from reference (frames)")
     ax.set_ylabel("projection error (pixels)")
     ax.legend()
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex4_q47.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex4_q47.png")
     # plt.show()
 
 
@@ -215,22 +216,6 @@ def main():
     q47(db)
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()
-"""
-TrackingDB serialized to ./code/output/tracking_with_geometric_validation.pkl
-Tracking database saved to ./code/output/tracking_with_geometric_validation.pkl
-Total number of tracks: 290258
-Number of frames: 2600
-Mean track length: 5.270280233447485
-Minimum and maximum track lengths: 2, 200
-Mean number of frame links: 588.3619230769231
-"""
-"""
-TrackingDB serialized to ./code/output/tracking_with_geometric_validation_without_far_tracks.pkl
-Tracking database saved to ./code/output/tracking_with_geometric_validation_without_far_tracks.pkl
-Total number of tracks: 287158
-Number of frames: 2600
-Mean track length: 5.191180465109801
-Minimum and maximum track lengths: 2, 163
-Mean number of frame links: 573.3419230769231
-"""

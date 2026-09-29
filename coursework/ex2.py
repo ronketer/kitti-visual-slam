@@ -1,7 +1,7 @@
 from kitti_slam.dataset import read_images
 from reports.plots import plot_and_save
 from kitti_slam.dataset import read_cameras
-from reports.paths import *
+from reports.paths import COURSEWORK_OUTPUT_DIR
 from kitti_slam.stereo import classify_matches_by_deviation, solveLLST
 import os
 import cv2
@@ -57,7 +57,7 @@ def triangulateWithCV(camera1, camera2, kp0, kp1, inliers):
     points4D = cv2.triangulatePoints(camera1, camera2, query_keypoints.T, train_keypoints.T)
     # Convert to 3D points
     points3D = points4D[:3] / points4D[3]
-    plot_and_save_3d(points3D, "3D Points from CV", os.path.join(OUTPUT_RELATIVE_PATH, 'ex2_3D_points_CV.png'))
+    plot_and_save_3d(points3D, "3D Points from CV", os.path.join(COURSEWORK_OUTPUT_DIR, 'ex2_3D_points_CV.png'))
 
 def linearLeastSquaresTriangulation(camera1, camera2, kp0, kp1, inliers):
     # Extract the 2D points from the inliers
@@ -68,7 +68,7 @@ def linearLeastSquaresTriangulation(camera1, camera2, kp0, kp1, inliers):
     for i in range(len(inliers)):
         point3D = solveLLST(query_keypoints[i], train_keypoints[i], camera1, camera2)
         points3D[:, i] = point3D
-    plot_and_save_3d(points3D, "3D Points from Linear Least Squares", os.path.join(OUTPUT_RELATIVE_PATH, 'ex2_3D_points_LLS.png'))
+    plot_and_save_3d(points3D, "3D Points from Linear Least Squares", os.path.join(COURSEWORK_OUTPUT_DIR, 'ex2_3D_points_LLS.png'))
 #endregion
 
 def q1(matches):
@@ -83,7 +83,7 @@ def q1(matches):
     plt.title("Histogram of Deviations")
     plt.xlabel("Deviation in Y-axis")
     plt.ylabel("Number of Matches")
-    plt.savefig(os.path.join(OUTPUT_RELATIVE_PATH, "ex2_deviation_histogram.png"))
+    plt.savefig(os.path.join(COURSEWORK_OUTPUT_DIR, "ex2_deviation_histogram.png"))
     plt.close()
 
     percentage_deviations = (sum(deviation > 2 for deviation in deviations) / len(deviations)) * 100
@@ -101,7 +101,7 @@ def q2(matches, kp0, kp1):
     plot_and_save(
         combined_img,
         "Inliers (orange colored dots) and Outliers (cyan colored dots)",
-        os.path.join(OUTPUT_RELATIVE_PATH, "ex2_inliers_outliers.png"),
+        os.path.join(COURSEWORK_OUTPUT_DIR, "ex2_inliers_outliers.png"),
         (20, 10),
         100,
     )
@@ -131,9 +131,11 @@ def q4(k, m1, m2):
         points4D = cv2.triangulatePoints(camera1, camera2, query_keypoints.T, train_keypoints.T)
         # Convert to 3D points
         points3D = points4D[:3] / points4D[3]
-        plot_and_save_3d(points3D, f"3D Points from {idx}", os.path.join(OUTPUT_RELATIVE_PATH, f'ex2_3D_points_{idx}.png'))
+        plot_and_save_3d(points3D, f"3D Points from {idx}", os.path.join(COURSEWORK_OUTPUT_DIR, f'ex2_3D_points_{idx}.png'))
 
 if __name__  == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     img0, img1 = read_images(0)
     orb = cv2.ORB_create()
 

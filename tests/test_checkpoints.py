@@ -10,10 +10,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "code"), str(ROOT)]
-import checkpoints as cp
-import run_pipeline as pipeline
-from tracking_database import TrackingDB, Link
+sys.path.insert(0, str(ROOT))
+from kitti_slam import checkpoints as cp
+from kitti_slam import pipeline
+from kitti_slam.tracking_database import TrackingDB, Link
 
 
 class CheckpointTests(unittest.TestCase):

@@ -11,10 +11,10 @@ from unittest.mock import Mock, patch
 import cv2
 import numpy as np
 
-CODE = Path(__file__).resolve().parents[1] / "code"
-sys.path.insert(0, str(CODE))
-import tracking
-from tracking_database import Link, TrackingDB
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from kitti_slam import tracking
+from kitti_slam.tracking_database import Link, TrackingDB
 
 
 def fixture():
@@ -104,13 +104,6 @@ class TrackingTests(unittest.TestCase):
             snapshot({k: v for k, v in vars(diagnostic).items() if k not in expected_counts}),
         )
 
-    def test_legacy_entry_points(self):
-        from alg import create_tracking_db
-        from final.ransac_pnp_analysis import updated_create_tracking_db
-        self.assertIs(create_tracking_db, tracking.build_tracking_database)
-        report, _ = run_fixture(updated_create_tracking_db)
-        canonical, _ = run_fixture(collect_diagnostics=True)
-        self.assertEqual(snapshot(vars(report)), snapshot(vars(canonical)))
 
     def test_checkpoint_roundtrip_and_older_optional_statistics(self):
         db, _ = run_fixture(collect_diagnostics=True)

@@ -1,0 +1,16 @@
+Selected first window from keyframe 0 to 15
+Number of factors in the graph: 10543
+Total initial error: 12382.5391
+Total optimized error: 2045.6831
+average factor error: before optimization: 1.1745, after optimization: 0.1940
+factor analysis:
+Frame (c): 11, Landmark (q): 1910
+Initial error: 59.2802
+Optimized error: 0.9457
+Initial distance left: 8.69 px
+Initial distance right: 6.94 px
+Optimized distance left: 1.15 px
+Optimized distance right: 1.27 px
+Ignoring fixed x limits to fulfill fixed data aspect with adjustable data limits.
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▎| 229/230 [01:18<00:00,  3.20it/s]Anchoring factor error for last window (2590, 2599): 8.088593044821155e-09
+Optimized position of first frame in last bundle (2590): [-15.65374653  -9.20064505 202.06543106]

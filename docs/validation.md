@@ -1,67 +1,78 @@
-# Validation status and separate correctness work
+# Validation and known limitations
 
-## What has been verified
+## Tested environment and results
 
-The completed structural migration was checked on native Windows with CPython
-3.13.5: **56 tests ran, 52 passed and four real-GTSAM tests were skipped**.
-The organization completion adds geometry, projection aggregation,
-window policy, import-direction and legacy-dispatch checks. This is a recorded
-refactor validation result, not a permanent promise about other environments.
-Editable installation, a built wheel's isolated imports, the console entry point
-from another directory, and historical tracking-pickle class loading were checked.
-The final source distribution and wheel contents were checked to exclude binary
-artifacts/datasets and separate runtime from historical source.
+The latest recorded full suite completed with **54 passed, 0 failed, 0 skipped**.
 
-Run the suite after installing the `plotting` extra:
+| Component | Tested version |
+|---|---|
+| OS | Ubuntu 24.04.3 under WSL2 |
+| Python | 3.12.3 |
+| GTSAM | 4.3.0, installed from a PyPI wheel |
+| NumPy | 2.5.3 |
+| OpenCV (`opencv-python`) | 4.14.0.94 |
+| Matplotlib | 3.11.1 |
+| tqdm | 4.70.1 |
+
+These are the versions used for the recorded run, not a guarantee of compatibility
+with every version allowed by the package metadata. The wheel and source
+distribution also built successfully; distribution contents, isolated wheel
+imports, CLI help and historical tracking-pickle loading were checked.
+
+## Running the checks
+
+From a source checkout in an environment with a compatible GTSAM wheel:
 
 ```sh
+python -m pip install -e ".[plotting,optimization]"
 python -B -m unittest discover -s tests -v
 ```
 
-| Layer | Existing checks | What it does not establish |
-|---|---|---|
-| Pure geometry | Transform composition, camera centers, empty arrays, dtype behavior | All dataset coordinate conventions |
-| Synthetic frontend | Stereo thresholds, handwritten SVD, correspondence ordering, seeded real OpenCV RANSAC/PnP, right-view outliers | Full-sequence tracking accuracy or failure recovery |
-| Synthetic tracking | Three-frame IDs, collisions, lost/new tracks, remapping, pose accumulation, diagnostic counts, pickle compatibility | Long-run memory and data-dependent drift |
-| Backend orchestration | Factor/order and result contracts, original error gate, covariance formula, explicit GT endpoint, no plotting/I/O in core operations | Solver accuracy; test doubles are call markers, not numerical solvers |
-| Real GTSAM (currently skipped) | Synthetic stereo BA, two windows, endpoint-constrained pose chain, joint marginal extraction | KITTI end-to-end accuracy or historical result reproduction |
-| Checkpoint/package boundary | LFS and malformed payload rejection, atomic-write failure, stale upstream hashes, dependency errors, module identity and import direction | Complete schema/type validation, numerical health, source/dataset provenance |
-| Evaluation | Rotation metric, historical half-sequence/sampling behavior, stored endpoints and missing PnP poses | Correctness of every historical plot or reported aggregate |
+To build distributions with [uv](https://docs.astral.sh/uv/):
 
-No full KITTI run was performed for the structural refactor. Historical LFS
-pointer files are not usable numerical baselines. The GTSAM wheel-only check in
-this Windows environment found no compatible stable package; compilation and
-environment replacement were intentionally deferred.
+```sh
+uv build
+```
 
-## Next validation in a suitable GTSAM environment
+Native Windows can run the frontend and tests that do not require GTSAM. Install
+`.[plotting]` for that subset. Four numerical tests skip if GTSAM is absent;
+confirm that they execute when validating backend numerical behavior. Backend
+operations and checkpoints containing GTSAM objects require the real library.
 
-1. Run the existing suite with real GTSAM and record Python, OpenCV, NumPy and
-   GTSAM versions. Confirm the four gated tests execute rather than skip.
-2. Establish a short, explicit KITTI fixture: calibration, a small consecutive
-   frame range beginning at zero, and input checksums. Use the Python APIs for
-   short frame ranges; the CLI currently retains the full sequence defaults.
-3. Compare tracking observations/IDs exactly and transforms numerically against
-   the same pre-change implementation. Fix Python and NumPy random seeds for
-   comparisons without changing runtime defaults. Solver/platform tolerances
-   should be measured, documented and justified.
-4. Compare window boundaries, graph sizes, keys, initialization, optimized costs,
-   endpoint poses and covariance blocks. Keep tests of wiring separate from
-   numerical comparisons.
-5. Recover trusted historical checkpoint payloads or produce a clearly labeled
-   new baseline. Run full sequence regression only as an explicit validation
-   task. Record GT usage and the precise metric sampling and normalization.
+## Coverage and limits
 
-Checkpoint sidecars currently hash only the payload and upstream checkpoint.
-They do not identify source revision, calibration, image contents, thresholds,
-RNG state, or dependency versions. Use a new run directory or `--force` after
-changing these inputs; do not interpret a successful resume as provenance proof.
+The dataset-independent suite covers geometry; synthetic stereo and seeded
+OpenCV RANSAC/PnP; multiframe tracking; window boundaries; backend construction
+and orchestration; covariance extraction; checkpoint failures and pickle
+compatibility; evaluation policies; import direction; and Exercise 3's distinct
+stereo/timing behavior.
 
-## Correctness concerns excluded from structural cleanup
+The four real-GTSAM numerical tests exercise:
 
-These observations describe existing source behavior. No fix is implied by the
-package move. Each change needs its own expected behavior and regression evidence.
+- Stereo BA graph optimization.
+- Two-window BA optimization.
+- Endpoint-constrained pose-chain optimization.
+- Joint-marginal extraction.
 
-| Location | Observation / unresolved concern | Separate follow-up |
+Passing these checks does not establish full-sequence KITTI accuracy, validate
+every mathematical convention, or reproduce the submitted results. The archived
+pickle files are Git-LFS pointer text, not numerical payloads. Coursework and
+report programs have not been reproduced end to end with the current code.
+
+For reproducible dataset runs, record image/calibration checksums, frame bounds,
+dependency versions and RNG seeds. Compare observations/IDs, transforms, window
+endpoints, graph keys, costs and covariance blocks with a recorded reference run.
+Checkpoint sidecars hash payloads and upstream checkpoints, not source, dataset,
+thresholds or RNG state; use a new run directory or `--force` when these inputs
+change.
+
+## Known limitations and open mathematical questions
+
+The table distinguishes source behavior from questions requiring further
+validation. Synthetic test success does not resolve the coordinate or covariance
+interpretation questions below.
+
+| Location | Observed behavior or unresolved concern | Validation needed |
 |---|---|---|
 | `motion.solve_pnp_and_locations`, `refine_pose` | Right-camera extrinsics compose the estimated left transform after the baseline transform. The physical ordering needs checking under rotation. | Synthetic rotating stereo-rig test with a known baseline |
 | `motion.refine_pose` | Starts iterative PnP with zero rotation/translation, despite a comment referring to the RANSAC estimate. Returns refined poses but `perform_motion_estimation` keeps the old supporters. | Decide initialization and reclassification policy explicitly |
@@ -75,9 +86,4 @@ package move. Each change needs its own expected behavior and regression evidenc
 | `pipeline.run_stage_3` | Uses the last ground-truth pose as a tight estimation prior. | Keep this experiment labeled; visual loop detection would be new algorithmic work |
 | GT readers and `gtsam_geometry.create_pose_from_extrinsics` | Parsed KITTI pose matrices are treated as world-to-camera extrinsics and inverted. | Verify the dataset convention before changing transforms or metrics |
 | `evaluation.trajectory_errors`, `reports/plot_relative_errors.py` | Subsequence computation uses the first half of available keyframes and nearest-endpoint snapping; the report also plots half-sampled consecutive results. | Establish an explicit evaluation protocol before claiming standard KITTI metrics |
-| Historical README results | Aggregate numbers and image provenance have not been reproduced from restored payloads. | Recover provenance or publish new labeled measurements |
-
-The exercise 3 detector import problem has been repaired without changing its
-algorithms. Historical paths are centralized and module/script forwarding is
-tested. See [migration status](migration-status.md) for completed structural
-work and the remaining numerical/artifact-reproduction deferrals.
+| Historical figures and submitted report | Results have not been reproduced from restored payloads. | Recover input provenance and payloads before making reproducible accuracy claims |

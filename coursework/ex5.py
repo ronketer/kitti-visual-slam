@@ -1,5 +1,6 @@
+from reports.paths import CHECKPOINT_DIR
 from kitti_slam.evaluation.plots import plot_trajectories, plot_trajectory_errors, plot_relative_translation_errors
-from reports.paths import OUTPUT_RELATIVE_PATH, LASTFRAME, GT_POSES_FILE
+from reports.paths import COURSEWORK_OUTPUT_DIR, LAST_FRAME, GT_POSES_FILE
 from kitti_slam.gtsam_geometry import create_stereo_camera, create_pose_from_extrinsics
 from kitti_slam.bundle_adjustment import initialize_factor_graph_in_window, run_bundle_adjustment
 from kitti_slam.trajectory import bundle_trajectories
@@ -18,7 +19,7 @@ from tqdm import tqdm
 import cv2
 import pickle
 
-OUTPUT_PATH = OUTPUT_RELATIVE_PATH + f"tracking_with_geometric_validation_without_far_tracks"
+OUTPUT_PATH = CHECKPOINT_DIR + f"tracking_with_geometric_validation_without_far_tracks"
 
 def q1(db, K):
     np.random.seed(0)
@@ -120,7 +121,7 @@ def q1(db, K):
     ax3.set_ylabel("factor error")
     ax3.legend()
 
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex5_q1.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex5_q1.png")
     # plt.show()
 
 
@@ -321,7 +322,7 @@ def q3(db, K):
         frame_id=fid,
         measurement=measurement,
         projection=proj_init,
-        save_path=OUTPUT_RELATIVE_PATH + "ex5_q3_initial_projection.png",
+        save_path=COURSEWORK_OUTPUT_DIR + "ex5_q3_initial_projection.png",
         title=f"Initial Projection vs Measurement - Frame {fid}",
     )
 
@@ -329,7 +330,7 @@ def q3(db, K):
         frame_id=fid,
         measurement=measurement,
         projection=proj_opt,
-        save_path=OUTPUT_RELATIVE_PATH + "ex5_q3_optimized_projection.png",
+        save_path=COURSEWORK_OUTPUT_DIR + "ex5_q3_optimized_projection.png",
         title=f"Optimized Projection vs Measurement - Frame {fid}",
     )
 
@@ -341,13 +342,13 @@ def q3(db, K):
         axis_labels=("X axis (m)", "Y axis (m)", "Z axis (m)"),
     )
     gtsam_plot.set_axes_equal(0)
-    plt.savefig(OUTPUT_RELATIVE_PATH + "ex5_q3_3d.png")
+    plt.savefig(COURSEWORK_OUTPUT_DIR + "ex5_q3_3d.png")
 
     plot_3d_pose_from_above(
-        result, pose_keys, save_path=OUTPUT_RELATIVE_PATH + "ex5_q3_2d_camera.png"
+        result, pose_keys, save_path=COURSEWORK_OUTPUT_DIR + "ex5_q3_2d_camera.png"
     )
     plot_landmarks_from_above(
-        result, point_keys, save_path=OUTPUT_RELATIVE_PATH + "ex5_q3_2d_landmarks.png"
+        result, point_keys, save_path=COURSEWORK_OUTPUT_DIR + "ex5_q3_2d_landmarks.png"
     )
 
 
@@ -355,7 +356,7 @@ def q4(db, K):
     """Coursework wrapper: run reusable BA, then evaluate and plot its results."""
     gt_matrices = []
     with open(GT_POSES_FILE, "r") as f:
-        gt_matrices = [parse_gt_line(line) for line in f.readlines()[: LASTFRAME + 1]]
+        gt_matrices = [parse_gt_line(line) for line in f.readlines()[: LAST_FRAME + 1]]
     gt_centers = np.array([find_camera_location(m) for m in gt_matrices])
 
     windows_graph_list = run_bundle_adjustment(db, K)
@@ -373,14 +374,14 @@ def q4(db, K):
         init_estimate_global_poses,
         optimizied_global_poses,
         label_every=5,
-        save_path=OUTPUT_RELATIVE_PATH + f"ex5_trajectory.png",
+        save_path=COURSEWORK_OUTPUT_DIR + f"ex5_trajectory.png",
     )
 
     plot_trajectory_errors(
         gt_centers,
         init_estimate_global_poses,
         optimizied_global_poses,
-        save_path=OUTPUT_RELATIVE_PATH + f"ex5_trajectory_error.png",
+        save_path=COURSEWORK_OUTPUT_DIR + f"ex5_trajectory_error.png",
     )
 
     plot_relative_translation_errors(
@@ -388,7 +389,7 @@ def q4(db, K):
         t_rel_init,
         t_rel_opt,
         create_pose_from_extrinsics,
-        save_path=OUTPUT_RELATIVE_PATH + f"ex5_relative_error.png",
+        save_path=COURSEWORK_OUTPUT_DIR + f"ex5_relative_error.png",
     )
     # At the end of q4, ensure it returns all_ba_results
 
@@ -409,7 +410,7 @@ def main():
 
     bundle_results = q4(db, K)
 
-    result_save_path = OUTPUT_RELATIVE_PATH + "ba_results.pkl"
+    result_save_path = CHECKPOINT_DIR + "ba_results.pkl"
     print(f"Saving BA results to {result_save_path}...")
     with open(result_save_path, "wb") as f:
         # Save all the necessary data in a single tuple or dictionary
@@ -421,23 +422,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()
-
-"""
-Selected first window from keyframe 0 to 15
-Number of factors in the graph: 10543
-Total initial error: 12382.5391
-Total optimized error: 2045.6831
-average factor error: before optimization: 1.1745, after optimization: 0.1940
-factor analysis:
-Frame (c): 11, Landmark (q): 1910
-Initial error: 59.2802
-Optimized error: 0.9457
-Initial distance left: 8.69 px
-Initial distance right: 6.94 px
-Optimized distance left: 1.15 px
-Optimized distance right: 1.27 px
-Ignoring fixed x limits to fulfill fixed data aspect with adjustable data limits.
-100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▎| 229/230 [01:18<00:00,  3.20it/s]Anchoring factor error for last window (2590, 2599): 8.088593044821155e-09
-Optimized position of first frame in last bundle (2590): [-15.65374653  -9.20064505 202.06543106]
-"""

@@ -1,39 +1,38 @@
-# Artifact organization
+# Artifacts and distribution boundaries
 
-Source implementations and generated/project artifacts have separate owners.
-No historical binary was opened for numerical interpretation, regenerated,
-deleted, or renamed during the migration reconciliation.
-
-| Location | Ownership and lifecycle |
+| Location | Ownership |
 |---|---|
-| `kitti_slam/` | Installable reusable source only |
-| `coursework/` | Historical exercise source only |
-| `reports/` | Historical report/experiment source only |
-| `code/*.py`, `code/ex3code/*.py`, `code/final/*.py` | Compatibility imports and execution forwarding only |
-| `code/output/` | Retained historical exercise figures and checkpoint pointers; 44 PNGs and six pickle pointers at reconciliation |
-| `code/final/plots/` and other existing non-source files under `code/final/` | Retained historical final-project artifacts; 28 PNGs and two pickle pointers in total |
-| `results/` | Four curated historical figures referenced by the README |
-| `slam_final_submission.pdf` | Original submission, retained at its existing linked path |
-| `dataset/` | Local validation data, ignored and excluded from distributions |
-| `artifacts/<run>/checkpoints/` | New runtime results and dependency-hash sidecars; ignored |
-| `artifacts/package-check/` | Local build verification artifacts; ignored |
-| `build/`, `dist/`, `*.egg-info/` | Generated Python packaging files; ignored |
+| `results/*.png` | Four curated historical figures used for project presentation |
+| `results/historical/coursework/` | Original `code/output/`: 44 PNGs, six LFS pointer files |
+| `results/historical/final/` | Original `code/final/plots/`: 28 PNGs, two LFS pointer files |
+| `results/historical/manifest.json` | Original paths, destination paths, SHA-256, byte sizes and artifact kinds at `057d991` |
+| `results/historical/ex4-console-transcript.txt`, `ex5-console-transcript.txt` | Historical console output preserved from exercise source |
+| `slam_final_submission.pdf` | Original submitted report; source wins if implementation differs |
+| `artifacts/sequence-05/checkpoints/` | Default new tracking/BA/pose-graph payloads and dependency sidecars |
+| `artifacts/coursework/` | Generated exercise figures |
+| `artifacts/reports/` | Generated report figures, including experiment subdirectories |
+| `dataset/` | Local KITTI inputs; ignored, never packaged |
 
-The legacy artifact directories are compatibility archives, not locations for
-new reusable source. Runtime defaults already use
-`artifacts/sequence-05/checkpoints/`. `--output-dir` selects a different runtime
-checkpoint directory. Existing historical report entry points retain their
-original output paths through `reports.paths` so reproduction behavior is not
-silently changed. Use the original directories only for deliberate historical
-reproduction; they are not loaded automatically by the runtime.
+The archive contains 72 PNGs and eight checkpoint pointers. All archived `.pkl`
+files contain Git-LFS pointer text, not usable serialized data. Their object IDs
+provide provenance; they cannot serve as inputs to numerical regression tests.
+Detector and diagnostic-count report programs still expect experiment-specific
+cache inputs from the archive; executing those reports requires recovering the
+actual payloads. Generic BA/pose/trajectory reports read pipeline checkpoints.
 
-All eight tracked historical pickle files inspected here contain Git LFS
-pointer headers. Renaming these files would not restore their payloads. Their
-relocation/consolidation should accompany recovered provenance and report
-reproduction. Their current paths remain documented rather than masquerading as
-working cached results. The checkpoint validator rejects them before unpickling.
+`reports.paths` separates checkpoint inputs, historical experiment inputs and
+new output destinations. Module entry points create generated output directories;
+imports do not create directories. Functions accepting explicit save paths leave
+that choice to callers. The historical report results have not been reproduced
+from these inputs.
 
-The runtime wheel includes neither these artifacts nor coursework/report source.
-The source distribution includes historical Python source and documentation but
-excludes datasets, binary reports, figures, checkpoints and generated build/run
-directories. `MANIFEST.in` makes this separation explicit.
+Checkpoints retain historical filenames, dictionary formats and tracking class
+pickle paths. BA/pose-graph `.pkl.json` sidecars hash the payload and upstream
+checkpoint. Restored old payloads can be read, but pipeline resume also requires
+valid dependency sidecars. Load only trusted pickles. `python -m kitti_slam --check`
+checks selected checkpoints without estimation or writes.
+
+The wheel contains only `kitti_slam`, the tracking pickle shim, and package metadata.
+The source distribution additionally contains coursework/report source, tests and
+docs. Neither distribution includes dataset files, PNGs, checkpoint pointers,
+the report PDF, local environments, build directories, or generated run artifacts.

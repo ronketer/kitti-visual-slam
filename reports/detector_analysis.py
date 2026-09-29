@@ -9,7 +9,7 @@ import random
 
 
 
-from reports.paths import LASTFRAME, FIRSTFRAME, FINAL_PLOTS_RELATIVE_PATH
+from reports.paths import LAST_FRAME, FIRST_FRAME, REPORT_OUTPUT_DIR, HISTORICAL_REPORT_DIR
 from kitti_slam.dataset import read_images
 from kitti_slam.dataset import read_cameras
 from reports.plots import plot_average_inliers
@@ -283,11 +283,14 @@ def evaluate_detector_repeatibility(detector=cv2.ORB_create(), img_index=1, plot
 
 
 if __name__ == "__main__":
-    output_dir = os.path.join(FINAL_PLOTS_RELATIVE_PATH, "detector-comparison")
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
+    output_dir = os.path.join(REPORT_OUTPUT_DIR, "detector-comparison")
+    os.makedirs(output_dir, exist_ok=True)
 
     import pickle
 
-    with open(os.path.join(output_dir, "detector_performance_data.pkl"), "rb") as f:
+    with open(os.path.join(HISTORICAL_REPORT_DIR, "detector-comparison", "detector_performance_data.pkl"), "rb") as f:
         all_results = pickle.load(f)
         print(len(all_results["AKAZE"]["spread_metrics"]))
 
@@ -295,15 +298,15 @@ if __name__ == "__main__":
 
     plot_spread_performance(
         all_results,
-        FIRSTFRAME,
-        LASTFRAME,
+        FIRST_FRAME,
+        LAST_FRAME,
         os.path.join(output_dir, "spread_performance.png"),
     )
 
     plot_processing_time(
         all_results,
-        FIRSTFRAME,
-        LASTFRAME,
+        FIRST_FRAME,
+        LAST_FRAME,
         os.path.join(output_dir, "processing_time.png"),
     )
 
@@ -320,7 +323,7 @@ if __name__ == "__main__":
     for detector_name, detector_obj in detectors.items():
         print(f"Testing {detector_name} detector...")
         for _ in tqdm(range(num_test_images)):
-            img_index = random.randint(0, LASTFRAME + 1)
+            img_index = random.randint(0, LAST_FRAME + 1)
             repeatability = evaluate_detector_repeatibility(
                 detector=detector_obj, img_index=img_index
             )

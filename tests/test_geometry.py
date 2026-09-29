@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
-from geometry import compose_extrinsics, coordinate_transform, find_camera_location
-from geometry import compute_camera_to_camera_transform, find_transformation
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from kitti_slam.geometry import compose_extrinsics, coordinate_transform, find_camera_location
+from kitti_slam.geometry import compute_camera_to_camera_transform, find_transformation
 
 
 class GeometryTests(unittest.TestCase):
@@ -20,8 +20,6 @@ class GeometryTests(unittest.TestCase):
         in_target = find_transformation(target)(world_point)
         relative = compute_camera_to_camera_transform(source, target)
         np.testing.assert_array_equal(find_transformation(relative)(in_source), in_target)
-        import utility
-        self.assertIs(utility.compute_camera_to_camera_transform, compute_camera_to_camera_transform)
 
     def test_identity_and_empty_point_cloud(self):
         identity = np.eye(3, 4)

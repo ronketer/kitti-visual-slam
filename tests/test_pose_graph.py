@@ -13,10 +13,9 @@ from unittest.mock import Mock, mock_open, patch
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "code"), str(ROOT)]
-import pose_graph as pg
-import trajectory
-
+sys.path.insert(0, str(ROOT))
+from kitti_slam import pose_graph as pg
+from kitti_slam import trajectory
 HAS_GTSAM = importlib.util.find_spec("gtsam") is not None
 
 
@@ -108,33 +107,34 @@ class PoseGraphBoundaryTests(unittest.TestCase):
         self.assertIs(result["relative_poses_and_covariances"], constraints)
 
     def test_stage_three_supplies_ground_truth_endpoint_explicitly(self):
-        import run_pipeline
+        from kitti_slam import pipeline
         lines = ["1 0 0 0 0 1 0 0 0 0 1 0\n", "1 0 0 1 0 1 0 0 0 0 1 0\n",
                  "1 0 0 2 0 1 0 0 0 0 1 0\n"]
         windows, results, endpoint = [object()], {"result": object()}, object()
         files = mock_open(read_data="".join(lines))
-        with patch.dict(sys.modules, {"pose_graph_loop_closure": None, "ex5": None}), \
-             patch.object(run_pipeline, "LAST_FRAME", 2), patch("builtins.open", files), \
-             patch.object(run_pipeline, "load_checkpoint", return_value=windows), \
-             patch.object(run_pipeline, "save_checkpoint") as save, \
-             patch("gtsam_geometry.create_pose_from_extrinsics", return_value=endpoint) as convert, \
+        with patch.dict(sys.modules, {"pose_graph_analysis": None, "ex5": None}), \
+             patch.object(pipeline, "LAST_FRAME", 2), patch("builtins.open", files), \
+             patch.object(pipeline, "load_checkpoint", return_value=windows), \
+             patch.object(pipeline, "save_checkpoint") as save, \
+             patch("kitti_slam.gtsam_geometry.create_pose_from_extrinsics", return_value=endpoint) as convert, \
              patch.object(pg, "run_pose_graph", return_value=results) as run, redirect_stdout(io.StringIO()):
-            run_pipeline.run_stage_3(force=True)
+            pipeline.run_stage_3(force=True)
         run.assert_called_once_with(windows, endpoint_frame=2, endpoint_pose=endpoint)
         np.testing.assert_array_equal(convert.call_args.args[0][:, 3], [2., 0., 0.])
-        save.assert_called_once_with(run_pipeline.checkpoint_path("pose-graph"), results, "pose-graph",
-                                     upstream=run_pipeline.checkpoint_path("ba"))
+        save.assert_called_once_with(pipeline.checkpoint_path("pose-graph"), results, "pose-graph",
+                                     upstream=pipeline.checkpoint_path("ba"))
 
     def test_computational_modules_import_without_gtsam_or_plots(self):
         script = f"""
 import sys, importlib.abc
-sys.path.insert(0, {str(ROOT / 'code')!r})
+sys.path.insert(0, {str(ROOT)!r})
 class Block(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname.split('.')[0] in {{'gtsam','matplotlib','ex5','utility'}}:
             raise AssertionError(fullname)
 sys.meta_path.insert(0, Block())
-import pose_graph, trajectory, bundle_adjustment, evaluation.trajectory_errors
+from kitti_slam import pose_graph, trajectory, bundle_adjustment
+from kitti_slam.evaluation import trajectory_errors
 """
         result = subprocess.run([sys.executable, "-B", "-c", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

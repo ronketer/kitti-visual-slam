@@ -7,7 +7,7 @@ import os
 
 
 from tqdm import tqdm
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH
+from reports.paths import REPORT_OUTPUT_DIR, CHECKPOINT_DIR
 from kitti_slam.gtsam_geometry import read_calibration
 
 
@@ -26,7 +26,7 @@ def plot_median_projection_errors():
     print("Loading bundle adjustment results...")
 
     # Load BA results
-    with open(OUTPUT_RELATIVE_PATH + "ba_results.pkl", "rb") as f:
+    with open(CHECKPOINT_DIR + "ba_results.pkl", "rb") as f:
         windows_graph_list = pickle.load(f)
     print(f"Loaded {len(windows_graph_list)} bundle windows")
 
@@ -95,7 +95,7 @@ def plot_median_projection_errors():
     plt.ylim(bottom=0)
 
     # Save the plot
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "median_projection_errors.png"
+    save_path = REPORT_OUTPUT_DIR + "median_projection_errors.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Plot saved to: {save_path}")
 
@@ -119,4 +119,6 @@ def main():
     print("=== Analysis Complete ===")
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

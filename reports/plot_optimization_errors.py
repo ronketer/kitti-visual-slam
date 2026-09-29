@@ -4,7 +4,7 @@ import pickle
 import sys
 import os
 from tqdm import tqdm
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH
+from reports.paths import REPORT_OUTPUT_DIR, CHECKPOINT_DIR
 
 def plot_optimization_errors():
     """
@@ -21,11 +21,11 @@ def plot_optimization_errors():
 
     # Load BA results
     try:
-        with open(OUTPUT_RELATIVE_PATH + "ba_results.pkl", "rb") as f:
+        with open(CHECKPOINT_DIR + "ba_results.pkl", "rb") as f:
             windows_graph_list = pickle.load(f)
         print(f"Loaded {len(windows_graph_list)} bundle windows")
     except FileNotFoundError:
-        print(f"Error: Could not find ba_results.pkl in {OUTPUT_RELATIVE_PATH}")
+        print(f"Error: Could not find ba_results.pkl in {CHECKPOINT_DIR}")
         print("Please ensure you have run the bundle adjustment (ex5.py) first.")
         return
     except Exception as e:
@@ -88,7 +88,7 @@ def plot_optimization_errors():
     plt.ylim(bottom=0)
 
     # Save the plot
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "optimization_errors.png"
+    save_path = REPORT_OUTPUT_DIR + "optimization_errors.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Plot saved to: {save_path}")
 
@@ -112,4 +112,6 @@ def main():
     print("=== Analysis Complete ===")
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

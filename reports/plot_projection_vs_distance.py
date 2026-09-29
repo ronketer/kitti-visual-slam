@@ -7,7 +7,7 @@ import sys
 import os
 
 from tqdm import tqdm
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH
+from reports.paths import REPORT_OUTPUT_DIR, CHECKPOINT_DIR
 from kitti_slam.gtsam_geometry import read_calibration
 from kitti_slam.tracking_database import TrackingDB
 from kitti_slam.gtsam_geometry import create_stereo_camera, create_pose_from_extrinsics
@@ -23,7 +23,7 @@ def plot_projection_vs_distance():
 
     # Load tracking database
     db = TrackingDB()
-    OUTPUT_PATH = OUTPUT_RELATIVE_PATH + "tracking_with_geometric_validation_without_far_tracks"
+    OUTPUT_PATH = CHECKPOINT_DIR + "tracking_with_geometric_validation_without_far_tracks"
     try:
         db.load(OUTPUT_PATH)
         print("Loaded tracking database")
@@ -41,7 +41,7 @@ def plot_projection_vs_distance():
 
     # Load bundle adjustment results
     try:
-        with open(OUTPUT_RELATIVE_PATH + "ba_results.pkl", "rb") as f:
+        with open(CHECKPOINT_DIR + "ba_results.pkl", "rb") as f:
             windows_graph_list = pickle.load(f)
         print(f"Loaded {len(windows_graph_list)} bundle windows")
     except Exception as e:
@@ -118,7 +118,7 @@ def plot_projection_vs_distance():
     plt.tight_layout()
 
     # Save the plot
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "projection_vs_distance.png"
+    save_path = REPORT_OUTPUT_DIR + "projection_vs_distance.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Plot saved to: {save_path}")
 
@@ -157,4 +157,6 @@ def main():
     print("=== Analysis Complete ===")
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

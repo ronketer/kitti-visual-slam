@@ -1,25 +1,21 @@
-"""Report plots and compatibility entry point for tracking diagnostics."""
+"""Report plots from a tracking checkpoint with diagnostic counts."""
 import sys
 import os
 
 from kitti_slam.tracking_database import TrackingDB
-from kitti_slam.tracking import build_tracking_database
 from kitti_slam.dataset import read_cameras
 from reports.plots import plot_matches_and_supporters
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH
-
-
-def updated_create_tracking_db(**kwargs):
-    """Build the same tracking database with the report's diagnostic counts."""
-    return build_tracking_database(collect_diagnostics=True, **kwargs)
+from reports.paths import REPORT_OUTPUT_DIR, HISTORICAL_REPORT_DIR
 
 
 if __name__ == "__main__":
-    output_directory = os.path.join(FINAL_PLOTS_RELATIVE_PATH, "ransac-pnp-final-plots")
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
+    output_directory = os.path.join(REPORT_OUTPUT_DIR, "ransac-pnp-final-plots")
     os.makedirs(output_directory, exist_ok=True)
 
     db = TrackingDB()
-    db.load(os.path.join(output_directory, "tracking_enhanced"))
+    db.load(os.path.join(HISTORICAL_REPORT_DIR, "ransac-pnp-final-plots", "tracking_enhanced"))
 
     K_intrinsic, M1_extrinsic, M2_extrinsic = read_cameras()
 

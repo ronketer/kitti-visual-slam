@@ -10,13 +10,11 @@ from unittest.mock import Mock, patch
 import cv2
 import numpy as np
 
-CODE = Path(__file__).resolve().parents[1] / "code"
-sys.path.insert(0, str(CODE))
-import motion
-import stereo
-import supporters
-
-
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from kitti_slam import motion
+from kitti_slam import stereo
+from kitti_slam import supporters
 def keypoints(pixels):
     return [cv2.KeyPoint(float(x), float(y), 1.) for x, y in pixels]
 
@@ -90,36 +88,18 @@ class FrontendTests(unittest.TestCase):
         np.testing.assert_allclose(estimated_left, left1, atol=1e-5)
         np.testing.assert_allclose(estimated_right, right1, atol=1e-5)
 
-    def test_legacy_and_exercise_exports(self):
-        import alg
-        import utility
-        import perform_motion_estimation as legacy_motion
-        import solve_pnp_and_locations as legacy_pnp
-        import find_ransac_iteration_supporters as legacy_supporters
-        from ex3code import q3, q4, q5
-
-        self.assertIs(alg.process_stereo_pair, stereo.process_stereo_pair)
-        self.assertIs(alg.solveLLST, stereo.solveLLST)
-        self.assertIs(utility.find_stereo_temporal_matches, stereo.find_stereo_temporal_matches)
-        self.assertIs(legacy_motion.perform_motion_estimation, motion.perform_motion_estimation)
-        self.assertIs(legacy_pnp.solve_pnp_and_locations, motion.solve_pnp_and_locations)
-        self.assertIs(legacy_supporters.validate_projections_batch, supporters.validate_projections_batch)
-        self.assertIs(q3.q3, motion.solve_pnp_and_locations)
-        self.assertIs(q4.validate_projections_batch, supporters.validate_projections_batch)
-        self.assertIs(q5.refine_pose, motion.refine_pose)
-        self.assertIs(q5.extract_correspondences, motion.extract_correspondences)
 
     def test_frontend_imports_without_plotting_or_optimizer(self):
         script = f"""
 import importlib.abc
 import sys
-sys.path.insert(0, {str(CODE)!r})
+sys.path.insert(0, {str(ROOT)!r})
 class BlockOptionalDependencies(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname.split('.')[0] in {{'gtsam', 'matplotlib', 'utility'}}:
             raise AssertionError('Unexpected frontend dependency: ' + fullname)
 sys.meta_path.insert(0, BlockOptionalDependencies())
-import stereo, motion, supporters, alg
+from kitti_slam import stereo, motion, supporters
 """
         result = subprocess.run([sys.executable, "-B", "-c", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

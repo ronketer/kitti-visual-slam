@@ -9,7 +9,7 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 # explicit workspace root, or the working directory when none is supplied.
 REPOSITORY_ROOT = Path(os.environ.get(
     "KITTI_SLAM_ROOT",
-    _SOURCE_ROOT if (_SOURCE_ROOT / "code").is_dir() and (_SOURCE_ROOT / "pyproject.toml").is_file()
+    _SOURCE_ROOT if (_SOURCE_ROOT / "kitti_slam").is_dir() and (_SOURCE_ROOT / "pyproject.toml").is_file()
     else Path.cwd(),
 )).expanduser().resolve()
 FIRST_FRAME = 0
@@ -21,8 +21,8 @@ DEFAULT_DETECTOR = "AKAZE"
 class ProjectPaths:
     dataset_root: Path = REPOSITORY_ROOT / "dataset"
     sequence: str = "05"
-    output_dir: Path = REPOSITORY_ROOT / "code" / "output"
-    plots_dir: Path = REPOSITORY_ROOT / "code" / "final" / "plots"
+    output_dir: Path = REPOSITORY_ROOT / "artifacts" / "sequence-05" / "checkpoints"
+    plots_dir: Path = REPOSITORY_ROOT / "artifacts" / "reports"
 
     @property
     def sequence_dir(self):

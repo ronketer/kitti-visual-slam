@@ -1,4 +1,4 @@
-from reports.paths import OUTPUT_RELATIVE_PATH
+from reports.paths import CHECKPOINT_DIR
 from reports.paths import GT_POSES_FILE
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ import os
 
 from kitti_slam.dataset import parse_gt_line_matrix
 from kitti_slam.geometry import find_camera_location
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH
+from reports.paths import REPORT_OUTPUT_DIR
 
 def plot_trajectories(gt_poses, init_poses, opt_poses, pnp_poses, label_every=5, save_path=None):
     """
@@ -93,7 +93,7 @@ def main():
 
 
     # Load loop closure results
-    with open(OUTPUT_RELATIVE_PATH + "loop_closure_results.pkl", "rb") as f:
+    with open(CHECKPOINT_DIR + "loop_closure_results.pkl", "rb") as f:
         results = pickle.load(f)
     init_poses = results["poses_without_loop_closure"]
     opt_poses = results["poses_with_loop_closure"]
@@ -112,7 +112,7 @@ def main():
 
     # Load tracking database and extract PnP poses
     db = TrackingDB()
-    db.load(OUTPUT_RELATIVE_PATH + "tracking_with_geometric_validation_without_far_tracks")
+    db.load(CHECKPOINT_DIR + "tracking_with_geometric_validation_without_far_tracks")
     pnp_poses = {}
     for frame_id in db.all_frames():
         abs_extrinsics = db.get_absolute_extrinsics(frame_id)
@@ -120,10 +120,12 @@ def main():
             pose = create_pose_from_extrinsics(abs_extrinsics)
             pnp_poses[frame_id] = pose
 
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "trajectory_comparison.png"
+    save_path = REPORT_OUTPUT_DIR + "trajectory_comparison.png"
     plot_trajectories(gt_poses, init_poses, opt_poses, pnp_poses=pnp_poses, label_every=5, save_path=save_path)
     print(f"Plot saved to: {save_path}")
 
 
 if __name__ == "__main__":
-   main()
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
+    main()

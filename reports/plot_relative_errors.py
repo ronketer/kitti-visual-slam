@@ -13,7 +13,7 @@ from kitti_slam.evaluation.trajectory_errors import (
 from kitti_slam.trajectory import extract_pnp_poses, extract_bundle_poses
 
 from tqdm import tqdm
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH, LASTFRAME
+from reports.paths import REPORT_OUTPUT_DIR, CHECKPOINT_DIR, LAST_FRAME
 from kitti_slam.geometry import find_camera_location
 from kitti_slam.gtsam_geometry import read_calibration
 from kitti_slam.dataset import parse_gt_line_matrix
@@ -31,7 +31,7 @@ def load_loop_closure_results():
     """
     print("Loading loop closure results...")
 
-    loop_closure_save_path = OUTPUT_RELATIVE_PATH + "loop_closure_results.pkl"
+    loop_closure_save_path = CHECKPOINT_DIR + "loop_closure_results.pkl"
 
     with open(loop_closure_save_path, "rb") as f:
         loop_closure_results = pickle.load(f)
@@ -205,7 +205,7 @@ def plot_relative_errors():
 
     # Load tracking database for PnP poses
     db = TrackingDB()
-    OUTPUT_PATH = OUTPUT_RELATIVE_PATH + "tracking_with_geometric_validation_without_far_tracks"
+    OUTPUT_PATH = CHECKPOINT_DIR + "tracking_with_geometric_validation_without_far_tracks"
     try:
         db.load(OUTPUT_PATH)
         print("Loaded tracking database")
@@ -215,7 +215,7 @@ def plot_relative_errors():
 
     # Load bundle adjustment results
     try:
-        with open(OUTPUT_RELATIVE_PATH + "ba_results.pkl", "rb") as f:
+        with open(CHECKPOINT_DIR + "ba_results.pkl", "rb") as f:
             windows_graph_list = pickle.load(f)
         print(f"Loaded {len(windows_graph_list)} bundle windows")
     except Exception as e:
@@ -225,7 +225,7 @@ def plot_relative_errors():
     # Load ground truth
     try:
         with open(GT_POSES_FILE, "r") as f:
-            gt_matrices = [parse_gt_line_matrix(line) for line in f.readlines()[:LASTFRAME + 1]]
+            gt_matrices = [parse_gt_line_matrix(line) for line in f.readlines()[:LAST_FRAME + 1]]
         print(f"Loaded {len(gt_matrices)} ground truth poses")
     except Exception as e:
         print(f"Error loading ground truth: {e}")
@@ -247,7 +247,7 @@ def plot_relative_errors():
     # Plot consecutive relative errors
     plot_consecutive_relative_errors(
         pnp_consecutive, bundle_consecutive, pg_consecutive,
-        FINAL_PLOTS_RELATIVE_PATH + "relative_errors_consecutive.png"
+        REPORT_OUTPUT_DIR + "relative_errors_consecutive.png"
     )
     # pnp is tupple of (translation_errors, rotation_errors, frame_pairs, distances), take half of each list
     half_pnp_consecutive = (
@@ -271,7 +271,7 @@ def plot_relative_errors():
     # Plot consecutive relative errors with half of the data
     plot_consecutive_relative_errors(
         half_pnp_consecutive, half_bundle_consecutive, half_pg_consecutive,
-        FINAL_PLOTS_RELATIVE_PATH + "relative_errors_consecutive_half.png"
+        REPORT_OUTPUT_DIR + "relative_errors_consecutive_half.png"
     )
 
     # Calculate and plot subsequence relative errors
@@ -287,7 +287,7 @@ def plot_relative_errors():
         # Plot subsequence relative errors
         plot_subsequence_relative_errors(
             pnp_subseq, bundle_subseq, pg_subseq, seq_length,
-            FINAL_PLOTS_RELATIVE_PATH + f"relative_errors_subsequence_{seq_length}.png"
+            REPORT_OUTPUT_DIR + f"relative_errors_subsequence_{seq_length}.png"
         )
 
         # Print statistics
@@ -311,4 +311,6 @@ def main():
     print("=== Analysis Complete ===")
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

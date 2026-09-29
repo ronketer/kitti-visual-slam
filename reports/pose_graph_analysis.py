@@ -1,11 +1,11 @@
-"""Historical endpoint-prior experiment: plotting, I/O, and compatibility wrappers."""
+"""Historical endpoint-prior experiment: plotting and I/O around canonical graph operations."""
 import numpy as np
 import matplotlib.pyplot as plt
 import gtsam
 import gtsam.utils.plot as gtsam_plot
 from tqdm import tqdm
 import pickle
-from reports.paths import OUTPUT_RELATIVE_PATH, LASTFRAME, GT_POSES_FILE
+from reports.paths import CHECKPOINT_DIR, REPORT_OUTPUT_DIR, LAST_FRAME, GT_POSES_FILE
 from kitti_slam.gtsam_geometry import create_pose_from_extrinsics
 from kitti_slam.geometry import find_camera_location
 from kitti_slam.evaluation.plots import plot_trajectories, plot_trajectory_errors, plot_relative_translation_errors
@@ -75,15 +75,6 @@ def plot_3d_poses_with_covariance(poses: gtsam.Values, marginals: gtsam.Marginal
 
 from kitti_slam.dataset import parse_gt_line_matrix as parse_gt_line
 
-def build_pose_graph_with_loop_closure(relative_poses_and_covariances, last_frame_gt_matrix):
-    """Compatibility wrapper for the report's ground-truth endpoint experiment."""
-    return build_pose_graph(
-        relative_poses_and_covariances,
-        endpoint_frame=LASTFRAME,
-        endpoint_pose=create_pose_from_extrinsics(last_frame_gt_matrix),
-    )
-
-
 def plot_pose_graph_results(results, gt_matrices):
     """Reproduce the historical pose graph plots from returned results."""
     pose_graph = results["pose_graph"]
@@ -95,7 +86,7 @@ def plot_pose_graph_results(results, gt_matrices):
 
     plot_3d_poses(
         optimized_pose_graph_result,
-        f"{OUTPUT_RELATIVE_PATH}/pose_graph_optimized_poses_with_loop_closure.png",
+        f"{REPORT_OUTPUT_DIR}/pose_graph_optimized_poses_with_loop_closure.png",
         "Pose Graph Optimized Poses with Loop Closure",
     )
 
@@ -104,7 +95,7 @@ def plot_pose_graph_results(results, gt_matrices):
     plot_3d_poses_with_covariance(
         optimized_pose_graph_result,
         pose_graph_marginals,
-        f"{OUTPUT_RELATIVE_PATH}/pose_graph_optimized_poses_with_loop_closure_with_cov.png",
+        f"{REPORT_OUTPUT_DIR}/pose_graph_optimized_poses_with_loop_closure_with_cov.png",
         "Pose Graph Optimized Poses with Loop Closure"
     )
 
@@ -118,7 +109,7 @@ def plot_pose_graph_results(results, gt_matrices):
         init_poses_dict,
         opt_poses_dict,
         label_every=5,
-        save_path=f"{OUTPUT_RELATIVE_PATH}/pose_graph_trajectory_comparison_with_loop_closure.png"
+        save_path=f"{REPORT_OUTPUT_DIR}/pose_graph_trajectory_comparison_with_loop_closure.png"
     )
     print("Trajectory comparison plot with loop closure saved.")
 
@@ -127,7 +118,7 @@ def plot_pose_graph_results(results, gt_matrices):
         gt_centers,
         init_poses_dict,
         opt_poses_dict,
-        save_path=f"{OUTPUT_RELATIVE_PATH}/pose_graph_trajectory_errors_with_loop_closure.png"
+        save_path=f"{REPORT_OUTPUT_DIR}/pose_graph_trajectory_errors_with_loop_closure.png"
     )
     print("Trajectory errors plot with loop closure saved.")
 
@@ -137,7 +128,7 @@ def plot_pose_graph_results(results, gt_matrices):
     t_rel_opt_loop = {}
 
     for start_kf, end_kf in [(window_dict["start_kf"], window_dict["end_kf"]) for window_dict in relative_poses_and_covariances]:
-        if end_kf == LASTFRAME:
+        if end_kf == LAST_FRAME:
             continue
         if initial_estimate.exists(kf_pose_keys[start_kf]) and initial_estimate.exists(kf_pose_keys[end_kf]):
             pose_start_init = initial_estimate.atPose3(kf_pose_keys[start_kf])
@@ -155,26 +146,26 @@ def plot_pose_graph_results(results, gt_matrices):
         t_rel_init,
         t_rel_opt_loop,
         create_pose_from_extrinsics,
-        save_path=f"{OUTPUT_RELATIVE_PATH}/pose_graph_relative_errors_with_loop_closure.png"
+        save_path=f"{REPORT_OUTPUT_DIR}/pose_graph_relative_errors_with_loop_closure.png"
     )
     print("Relative translation errors plot with loop closure saved.")
 
 
 
-def optimize_pose_graph(pose_graph, initial_estimate, gt_matrices, kf_pose_keys, relative_poses_and_covariances):
+def optimize_and_report_pose_graph(pose_graph, initial_estimate, gt_matrices, kf_pose_keys, relative_poses_and_covariances):
     """Legacy optimize/plot/save entry point; computational callers use pose_graph."""
     results = optimize_pose_graph_result(
         pose_graph, initial_estimate, kf_pose_keys, relative_poses_and_covariances
     )
     plot_pose_graph_results(results, gt_matrices)
-    path = OUTPUT_RELATIVE_PATH + "loop_closure_results.pkl"
+    path = CHECKPOINT_DIR + "loop_closure_results.pkl"
     with open(path, "wb") as f:
         pickle.dump(results, f)
     print(f"Loop closure results saved to: {path}")
 
 
 def main():
-    bundle_save_path = OUTPUT_RELATIVE_PATH + "ba_results.pkl"
+    bundle_save_path = CHECKPOINT_DIR + "ba_results.pkl"
     print("\n--- Loading Bundle Adjustment Results ---")
     with open(bundle_save_path, "rb") as f:
         windows_graph_list = pickle.load(f)
@@ -184,11 +175,14 @@ def main():
     )
     gt_matrices = []
     with open(GT_POSES_FILE, "r") as f:
-        gt_matrices = [parse_gt_line(line) for line in f.readlines()[:LASTFRAME + 1]]
-    last_frame_gt_matrix = gt_matrices[LASTFRAME]
-    pose_graph, pose_graph_initial_estimate, kf_pose_keys = build_pose_graph_with_loop_closure(relative_poses_and_covariances , last_frame_gt_matrix)
+        gt_matrices = [parse_gt_line(line) for line in f.readlines()[:LAST_FRAME + 1]]
+    last_frame_gt_matrix = gt_matrices[LAST_FRAME]
+    pose_graph, pose_graph_initial_estimate, kf_pose_keys = build_pose_graph(
+        relative_poses_and_covariances, endpoint_frame=LAST_FRAME,
+        endpoint_pose=create_pose_from_extrinsics(last_frame_gt_matrix),
+    )
 
-    optimize_pose_graph(
+    optimize_and_report_pose_graph(
         pose_graph,
         pose_graph_initial_estimate,
         gt_matrices,
@@ -198,4 +192,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import random
 import os
 from reports.plots import plot_and_save
-from coursework._legacy_alg import *
+from kitti_slam.stereo import filter_by_ratio_test
 
 random.seed(0)
-from reports.paths import DATASET_RELATIVE_PATH, OUTPUT_RELATIVE_PATH, DATA_PATH, OUTPUT_PATH, LEFT_IMG_DIR, RIGHT_IMG_DIR
+from reports.paths import COURSEWORK_OUTPUT_DIR
 
 # output files names
 OUTPUT_FILES = {
@@ -50,7 +50,7 @@ def q1(img0, kp0, img1, kp1):
     plot_and_save(
         combined_img,
         VISUAL_CONFIG["titles"]["keypoints"],
-        os.path.join(OUTPUT_PATH, OUTPUT_FILES["keypoints"]),
+        os.path.join(COURSEWORK_OUTPUT_DIR, OUTPUT_FILES["keypoints"]),
         VISUAL_CONFIG["figsize"],
         VISUAL_CONFIG["dpi"],
     )
@@ -81,7 +81,7 @@ def q3(bf: cv2.BFMatcher, img0, kp0, des0, img1, kp1, des1):
     plot_and_save(
         matched_img,
         VISUAL_CONFIG["titles"]["random_matches"],
-        os.path.join(OUTPUT_PATH, OUTPUT_FILES["random_matches"]),
+        os.path.join(COURSEWORK_OUTPUT_DIR, OUTPUT_FILES["random_matches"]),
         VISUAL_CONFIG["figsize"],
         VISUAL_CONFIG["dpi"],
     )
@@ -112,7 +112,7 @@ def q4(bf: cv2.BFMatcher, img0, kp0, des0, img1, kp1, des1):
     plot_and_save(
         good_matches_img,
         VISUAL_CONFIG["titles"]["significant_matches"].format(STRICT_RATIO),
-        os.path.join(OUTPUT_PATH, good_output),
+        os.path.join(COURSEWORK_OUTPUT_DIR, good_output),
         VISUAL_CONFIG["figsize"],
         VISUAL_CONFIG["dpi"],
     )
@@ -138,13 +138,15 @@ def q4(bf: cv2.BFMatcher, img0, kp0, des0, img1, kp1, des1):
     plot_and_save(
         failed_matches_img,
         VISUAL_CONFIG["titles"]["failed_matches"].format(STRICT_RATIO),
-        os.path.join(OUTPUT_PATH, failed_output),
+        os.path.join(COURSEWORK_OUTPUT_DIR, failed_output),
         VISUAL_CONFIG["figsize"],
         VISUAL_CONFIG["dpi"],
     )
 
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     img0, img1 = read_images(0)
     orb = cv2.ORB_create()
 

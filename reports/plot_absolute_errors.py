@@ -11,7 +11,7 @@ from kitti_slam.evaluation.trajectory_errors import calculate_rotation_error_deg
 from kitti_slam.trajectory import extract_pnp_poses, recompose_bundle_poses as extract_bundle_poses
 
 from tqdm import tqdm
-from reports.paths import FINAL_PLOTS_RELATIVE_PATH, OUTPUT_RELATIVE_PATH, LASTFRAME
+from reports.paths import REPORT_OUTPUT_DIR, CHECKPOINT_DIR, LAST_FRAME
 from kitti_slam.geometry import find_camera_location
 from kitti_slam.gtsam_geometry import read_calibration
 from kitti_slam.dataset import parse_gt_line_matrix
@@ -27,7 +27,7 @@ def load_loop_closure_results():
     """
     print("Loading loop closure results...")
 
-    loop_closure_save_path = OUTPUT_RELATIVE_PATH + "loop_closure_results.pkl"
+    loop_closure_save_path = CHECKPOINT_DIR + "loop_closure_results.pkl"
     try:
         with open(loop_closure_save_path, "rb") as f:
             loop_closure_results = pickle.load(f)
@@ -43,7 +43,7 @@ def load_loop_closure_results():
 
     except FileNotFoundError:
         print(f"Loop closure results file not found: {loop_closure_save_path}")
-        print("Please run the loop closure optimization first (pose_graph_loop_closure.py)")
+        print("Please run the loop closure optimization first (pose_graph_analysis.py)")
         return {}, {}, {}
     except Exception as e:
         print(f"Error loading loop closure results: {e}")
@@ -60,7 +60,7 @@ def plot_absolute_errors():
 
     # Load tracking database for PnP poses
     db = TrackingDB()
-    OUTPUT_PATH = OUTPUT_RELATIVE_PATH + "tracking_with_geometric_validation_without_far_tracks"
+    OUTPUT_PATH = CHECKPOINT_DIR + "tracking_with_geometric_validation_without_far_tracks"
     try:
         db.load(OUTPUT_PATH)
         print("Loaded tracking database")
@@ -70,7 +70,7 @@ def plot_absolute_errors():
 
     # Load bundle adjustment results
     try:
-        with open(OUTPUT_RELATIVE_PATH + "ba_results.pkl", "rb") as f:
+        with open(CHECKPOINT_DIR + "ba_results.pkl", "rb") as f:
             windows_graph_list = pickle.load(f)
         print(f"Loaded {len(windows_graph_list)} bundle windows")
     except Exception as e:
@@ -80,7 +80,7 @@ def plot_absolute_errors():
     # Load ground truth
     try:
         with open(GT_POSES_FILE, "r") as f:
-            gt_matrices = [parse_gt_line_matrix(line) for line in f.readlines()[:LASTFRAME + 1]]
+            gt_matrices = [parse_gt_line_matrix(line) for line in f.readlines()[:LAST_FRAME + 1]]
         print(f"Loaded {len(gt_matrices)} ground truth poses")
     except Exception as e:
         print(f"Error loading ground truth: {e}")
@@ -185,7 +185,7 @@ def create_translation_error_plots(pnp_trans, bundle_trans, pg_without_lc_trans,
     axes[1, 1].grid(True, alpha=0.3)
 
     plt.tight_layout()
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "absolute_translation_errors.png"
+    save_path = REPORT_OUTPUT_DIR + "absolute_translation_errors.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Translation error plots saved to: {save_path}")
     plt.close()
@@ -209,7 +209,7 @@ def create_rotation_error_plots(pnp_rot, bundle_rot, pg_without_lc_rot, pg_with_
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    save_path = FINAL_PLOTS_RELATIVE_PATH + "absolute_rotation_errors.png"
+    save_path = REPORT_OUTPUT_DIR + "absolute_rotation_errors.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Rotation error plots saved to: {save_path}")
     plt.close()
@@ -247,4 +247,6 @@ def main():
     print("=== Analysis Complete ===")
 
 if __name__ == "__main__":
+    from reports.paths import ensure_output_directories
+    ensure_output_directories()
     main()

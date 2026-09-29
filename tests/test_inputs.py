@@ -10,14 +10,13 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-CODE = Path(__file__).resolve().parents[1] / "code"
-sys.path.insert(0, str(CODE))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
-import alg
-import tracking
-from config import DEFAULT_PATHS, ProjectPaths
-from dataset import read_cameras, read_images
-from detector_config import create_detector_and_matcher
+from kitti_slam import tracking
+from kitti_slam.config import DEFAULT_PATHS, ProjectPaths
+from kitti_slam.dataset import read_cameras, read_images
+from kitti_slam.detector_config import create_detector_and_matcher
 
 
 class InputTests(unittest.TestCase):
@@ -55,7 +54,7 @@ class InputTests(unittest.TestCase):
              patch.object(tracking, "create_detector_and_matcher", side_effect=AssertionError("unexpected defaults")), \
              patch.object(tracking, "read_images", return_value=("left", "right")) as images, \
              patch.object(tracking, "process_stereo_pair", return_value=stereo_result) as stereo:
-            db = alg.create_tracking_db(calibration=(K, M1, M2), detector=detector,
+            db = tracking.build_tracking_database(calibration=(K, M1, M2), detector=detector,
                                         matcher=matcher, last_frame=0)
         self.assertEqual(db.frame_num(), 1)
         np.testing.assert_array_equal(db.get_absolute_extrinsics(0), M1)
@@ -72,32 +71,29 @@ class InputTests(unittest.TestCase):
 
     def test_frame_range_rejects_unsupported_numbering(self):
         with self.assertRaises(ValueError):
-            alg.create_tracking_db(first_frame=10, last_frame=20)
+            tracking.build_tracking_database(first_frame=10, last_frame=20)
         with self.assertRaises(ValueError):
-            alg.create_tracking_db(last_frame=-1)
+            tracking.build_tracking_database(last_frame=-1)
 
     def test_imports_without_gtsam_from_another_working_directory(self):
         script = f"""
 import importlib.abc
 import sys
 from pathlib import Path
-sys.path.insert(0, {str(CODE)!r})
+sys.path.insert(0, {str(ROOT)!r})
 class BlockGtsam(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname == 'gtsam' or fullname.startswith('gtsam.'):
             raise ModuleNotFoundError('GTSAM deliberately unavailable', name='gtsam')
 sys.meta_path.insert(0, BlockGtsam())
-import detector_config
+from kitti_slam import detector_config
 assert 'detector' not in vars(detector_config)
-import geometry, dataset, utility, alg, perform_motion_estimation
-import solve_pnp_and_locations, find_ransac_iteration_supporters, window_selector
+from kitti_slam import geometry, dataset, motion, window_selector, gtsam_geometry
 assert 'detector' not in vars(detector_config)
-assert utility.compose_extrinsics is geometry.compose_extrinsics
-assert utility.read_cameras is dataset.read_cameras
-from config import DEFAULT_PATHS
+from kitti_slam.config import DEFAULT_PATHS
 assert DEFAULT_PATHS.calibration_file == Path({str(DEFAULT_PATHS.calibration_file)!r})
 try:
-    alg.create_pose_from_extrinsics(None)
+    gtsam_geometry.create_pose_from_extrinsics(None)
 except ModuleNotFoundError as error:
     assert error.name == 'gtsam'
 else:

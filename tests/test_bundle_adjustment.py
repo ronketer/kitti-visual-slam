@@ -13,12 +13,12 @@ import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "code"), str(ROOT)]
-import bundle_adjustment as ba
-import gtsam_geometry
-import trajectory
-from tracking_database import TrackingDB, Link
-from window_selector import WindowParameters
+sys.path.insert(0, str(ROOT))
+from kitti_slam import bundle_adjustment as ba
+from kitti_slam import gtsam_geometry
+from kitti_slam import trajectory
+from kitti_slam.tracking_database import TrackingDB, Link
+from kitti_slam.window_selector import WindowParameters
 
 HAS_GTSAM = importlib.util.find_spec("gtsam") is not None
 
@@ -91,30 +91,24 @@ class BundleOrchestrationTests(unittest.TestCase):
                 ba.run_bundle_adjustment(object(), object(), reference_extrinsics=np.eye(3, 4))
 
     def test_stage_two_writes_results_without_exercise_import(self):
-        import run_pipeline
+        from kitti_slam import pipeline
         calibration = (object(), object(), object())
         results = [object()]
         with patch.dict(sys.modules, {"ex5": None}), \
-             patch("tracking_database.TrackingDB") as database, \
-             patch("dataset.read_cameras", return_value=calibration), \
+             patch("kitti_slam.tracking_database.TrackingDB") as database, \
+             patch("kitti_slam.dataset.read_cameras", return_value=calibration), \
              patch.object(gtsam_geometry, "read_calibration", return_value="stereo calibration"), \
              patch.object(ba, "run_bundle_adjustment", return_value=results) as run, \
-             patch.object(run_pipeline, "load_checkpoint") as load, \
-             patch.object(run_pipeline, "save_checkpoint") as save, \
+             patch.object(pipeline, "load_checkpoint") as load, \
+             patch.object(pipeline, "save_checkpoint") as save, \
              redirect_stdout(io.StringIO()):
-            run_pipeline.run_stage_2(force=True)
-        source = run_pipeline.checkpoint_path("tracking")
+            pipeline.run_stage_2(force=True)
+        source = pipeline.checkpoint_path("tracking")
         load.assert_called_once_with(source, "tracking")
         database.return_value.load.assert_called_once_with(str(source.with_suffix("")))
         run.assert_called_once_with(database.return_value, "stereo calibration", reference_extrinsics=calibration[1])
-        save.assert_called_once_with(run_pipeline.checkpoint_path("ba"), results, "ba", upstream=source)
+        save.assert_called_once_with(pipeline.checkpoint_path("ba"), results, "ba", upstream=source)
 
-    def test_compatibility_exports(self):
-        import alg
-        import utility
-        self.assertIs(alg.initialize_factor_graph_in_window, ba.initialize_factor_graph_in_window)
-        self.assertIs(alg.create_pose_from_extrinsics, gtsam_geometry.create_pose_from_extrinsics)
-        self.assertIs(utility.read_calibration, gtsam_geometry.read_calibration)
 
 
 @unittest.skipUnless(HAS_GTSAM, "Real GTSAM unavailable: BA numerical validation deferred")

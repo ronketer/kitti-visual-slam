@@ -1,0 +1,16 @@
+TrackingDB serialized to ./code/output/tracking_with_geometric_validation.pkl
+Tracking database saved to ./code/output/tracking_with_geometric_validation.pkl
+Total number of tracks: 290258
+Number of frames: 2600
+Mean track length: 5.270280233447485
+Minimum and maximum track lengths: 2, 200
+Mean number of frame links: 588.3619230769231
+"""
+"""
+TrackingDB serialized to ./code/output/tracking_with_geometric_validation_without_far_tracks.pkl
+Tracking database saved to ./code/output/tracking_with_geometric_validation_without_far_tracks.pkl
+Total number of tracks: 287158
+Number of frames: 2600
+Mean track length: 5.191180465109801
+Minimum and maximum track lengths: 2, 163
+Mean number of frame links: 573.3419230769231
