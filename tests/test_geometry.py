@@ -8,9 +8,21 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code"))
 from geometry import compose_extrinsics, coordinate_transform, find_camera_location
+from geometry import compute_camera_to_camera_transform, find_transformation
 
 
 class GeometryTests(unittest.TestCase):
+    def test_camera_to_camera_helper_preserves_source_target_direction(self):
+        source = np.array([[0., -1., 0., 2.], [1., 0., 0., 3.], [0., 0., 1., 4.]])
+        target = np.array([[1., 0., 0., -1.], [0., 0., -1., 2.], [0., 1., 0., 5.]])
+        world_point = np.array([1., 2., 3.])
+        in_source = find_transformation(source)(world_point)
+        in_target = find_transformation(target)(world_point)
+        relative = compute_camera_to_camera_transform(source, target)
+        np.testing.assert_array_equal(find_transformation(relative)(in_source), in_target)
+        import utility
+        self.assertIs(utility.compute_camera_to_camera_transform, compute_camera_to_camera_transform)
+
     def test_identity_and_empty_point_cloud(self):
         identity = np.eye(3, 4)
         points = np.array([[1., 2., 3.], [-4., 5., 6.]])

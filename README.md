@@ -43,18 +43,21 @@ standard KITTI benchmark.
 - [Architecture and data flow](docs/architecture.md): module responsibilities, algorithm ownership, coordinate contracts and an interview reading order.
 - [Coursework and report map](code/README.md): historical entry points, compatibility wrappers and remaining structural work.
 - [Validation and correctness concerns](docs/validation.md): what has been tested, GTSAM-dependent checks and issues excluded from structural cleanup.
+- [Migration status](docs/migration-status.md): reconciliation against the original phases and justified deferrals.
+- [Artifact organization](docs/artifacts.md): runtime outputs, historical archives and distribution contents.
 
 Reusable implementation lives in the flat, installable `kitti_slam/` package.
 Internal imports are relative and never depend on coursework modules. `code/`
-retains exercises, historical report scripts, and small compatibility modules.
+retains compatibility modules and historical artifacts. Exercise implementations
+live in `coursework/`; report/experiment implementations live in `reports/`.
 The compatibility modules alias the canonical modules, so there is one copy of
 each implementation and its state.
 
 | Path | Contents |
 |---|---|
-| `code/ex1.py` – `ex5.py` | Sequential exercises building up the pipeline |
+| `coursework/ex1.py` – `ex5.py`, `coursework/ex3code/` | Sequential exercises and timed demonstrations |
 | `kitti_slam/pose_graph.py` | BA covariance/relative-pose extraction, explicit endpoint prior, batch pose graph optimization |
-| `code/pose_graph_loop_closure.py` | Historical report plots, persistence, and compatibility wrappers |
+| `reports/pose_graph_loop_closure.py` | Historical report plots and persistence around the canonical pose graph |
 | `kitti_slam/stereo.py` | Stereo filtering, OpenCV and handwritten SVD triangulation, four-view correspondences |
 | `kitti_slam/motion.py` | Custom adaptive RANSAC, P3P hypothesis generation, iterative PnP refinement |
 | `kitti_slam/supporters.py` | Four-view reprojection validation and supporter classification |
@@ -62,12 +65,13 @@ each implementation and its state.
 | `kitti_slam/bundle_adjustment.py` | BA graph construction and window optimization, returning checkpoint-compatible results |
 | `kitti_slam/gtsam_geometry.py` | GTSAM calibration, pose conversion, and stereo backprojection |
 | `kitti_slam/trajectory.py` | Trajectory extraction from window results, without plotting |
-| `kitti_slam/evaluation/` | Shared trajectory metrics and report plots |
+| `kitti_slam/evaluation/` | Shared trajectory/projection metrics, GT interpretation and report plots |
 | `kitti_slam/checkpoints.py` | Trusted checkpoint loading, schema checks, atomic writes, upstream digest checks |
 | `code/alg.py` | Compatibility exports for the original coursework imports |
 | `kitti_slam/tracking_database.py` | `TrackingDB` — central data structure mapping frames ↔ tracks |
 | `kitti_slam/window_selector.py` | Pluggable keyframe selection criteria for BA windows |
-| `code/final/` | Analysis scripts generating the plots in `results/` |
+| `reports/` | Historical analysis scripts and plotting helpers |
+| `code/`, `code/ex3code/`, `code/final/` | Legacy forwarding/import modules and artifact archives |
 | `results/` | Key output plots (committed) |
 | `artifacts/sequence-05/checkpoints/` | New pipeline outputs (ignored by Git) |
 | `dataset/` | KITTI Sequence 05 — not included, see Setup |
@@ -98,7 +102,9 @@ The distribution includes the reusable package and a top-level
 `tracking_database` compatibility module. Tracking classes keep their historical
 pickle module names, so the package reads existing trusted checkpoints and new
 checkpoints retain those class paths. Coursework scripts, dataset files, report
-PDFs, and generated artifacts are not included in the wheel.
+PDFs, and generated artifacts are not included in the wheel. The source
+distribution includes coursework/report Python source, compatibility entry
+points, tests and docs, with binary artifacts explicitly excluded.
 
 **Dataset**: Download [KITTI Odometry Sequence 05](https://www.cvlibs.net/datasets/kitti/eval_odometry.php) (grayscale images + ground truth poses) and place it at `dataset/sequences/05/` and `dataset/poses/05.txt`.
 
@@ -122,15 +128,15 @@ python -m kitti_slam --output-dir artifacts/my-run/checkpoints
 Historical exercise entry points include:
 
 ```bash
-python code/ex1.py   # feature detection & matching
-python code/ex5.py   # bundle adjustment
+python -m coursework.ex1   # feature detection & matching
+python -m coursework.ex5   # historical BA diagnostics/report
 ```
 
 The pipeline runner resolves default paths relative to the repository. Historical
-exercise/report scripts generally expect the **repo root** and may require
-historical payloads, GTSAM, or entry-point repairs. See the
-[coursework execution notes](code/README.md#execution-and-preservation-rules)
-before using them for report reproduction.
+exercise/report modules use anchored historical paths and may require real
+checkpoint payloads and GTSAM. Run module entry points from the source checkout;
+old `python code/ex1.py`-style commands remain supported. See the
+[coursework notes](coursework/README.md) before report reproduction.
 
 ### Checkpoints and project artifacts
 
@@ -160,11 +166,11 @@ Existing artifacts stay in place:
 | Location | Role |
 |---|---|
 | `code/output/` | Historical checkpoints and exercise outputs; some checkpoints are LFS pointers, not data |
-| `code/final/` | Historical analysis/report scripts and their existing outputs |
+| `code/final/` | Forwarding modules and retained historical outputs; implementations moved to `reports/` |
 | `results/` | Curated historical figures linked by this README |
 | `slam_final_submission.pdf` | Original submission report |
 | `artifacts/<run>/checkpoints/` | New generated checkpoints and dependency sidecars |
-| `artifacts/<run>/plots/`, `artifacts/<run>/metrics/` | Intended destinations for future explicit evaluation runs; not yet wired to historical scripts |
+| `artifacts/<run>/plots/`, `artifacts/<run>/metrics/` | Reserved for future explicit evaluation runs; existing historical programs preserve their destinations |
 
 For example, `python -m kitti_slam --check --output-dir code/output` reports
 the historical LFS placeholders without running any estimation. Restored legacy
@@ -193,7 +199,8 @@ python -B -m unittest discover -s tests -v
 `kitti_slam/config.py` defines repository-relative defaults for source/editable
 installs, with the wheel workspace behavior described above. The pipeline runner uses these dataset defaults and the
 separate artifacts directory above. Historical
-exercise/report scripts may still contain working-directory-relative paths.
+exercise/report paths are centralized in `reports.paths` and retain their
+historical destinations.
 `ProjectPaths` and the tracking function also allow explicit inputs, for example
 after installing the package:
 

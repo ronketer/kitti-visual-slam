@@ -35,7 +35,7 @@ sys.meta_path.insert(0, Block())
 import kitti_slam
 assert 'cv2' not in sys.modules
 from kitti_slam import tracking, bundle_adjustment, pose_graph, pipeline, detector_config
-from kitti_slam.evaluation import trajectory_errors
+from kitti_slam.evaluation import trajectory_errors, projection_errors, ground_truth
 from kitti_slam.tracking_database import Link
 assert 'detector' not in vars(detector_config)
 legacy = b'ctracking_database\\nLink\\n(F5.0\\nF4.0\\nF3.0\\ntR.'

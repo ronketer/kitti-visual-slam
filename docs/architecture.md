@@ -58,8 +58,8 @@ dataset.read_cameras + read_images     detector_config
                loop_closure_results.pkl
 
 Explicit evaluation: checkpoint data -> trajectory + evaluation metrics/plots
-Historical report entry points: code/final/, code/ex5.py,
-                               code/pose_graph_loop_closure.py
+Historical source entry points: reports/, coursework/ex5.py
+Legacy paths under code/ forward to these modules.
 ```
 
 The pipeline writes checkpoints but does not automatically generate plots.
@@ -89,6 +89,7 @@ All paths below are within [`kitti_slam/`](../kitti_slam/).
 | `pose_graph.extract_relative_pose_covariance/build_pose_graph/optimize_pose_graph` | Endpoint constraints, regularization and covariance block extraction, chain graph and explicit priors | GTSAM marginals, BetweenFactorPose3, LM; NumPy inverses |
 | `trajectory` | Extract PnP/BA/pose-graph trajectories; retain distinct stored and recomposed BA variants | GTSAM pose operations where needed |
 | `evaluation.trajectory_errors`, `evaluation.plots` | Historical metric formulas and plotting functions | NumPy, OpenCV rotation conversion, GTSAM relative poses, Matplotlib plots |
+| `evaluation.projection_errors`, `evaluation.ground_truth` | Shared stereo residual/distance/window aggregations and historical GT-center interpretation; no plots or checkpoint I/O | NumPy; deferred GTSAM projection operations; GT reader accepts paths |
 | `checkpoints`, `pipeline` | Persistence validation and atomic publication; stage order, resume and GT endpoint loading | Standard library; stage APIs |
 
 ## Dependency direction
@@ -167,5 +168,7 @@ detector attributes; they do not maintain separate algorithm implementations.
 6. `pose_graph.py`: uncertainty extraction, chain constraints and explicit endpoint prior.
 7. `trajectory.py`, `evaluation/`, and [validation.md](validation.md): what is measured and what remains unverified.
 
-For historical responsibilities and remaining migrations, see the
-[coursework map](../code/README.md).
+For historical responsibilities, see [coursework](../coursework/README.md) and
+[reports](../reports/README.md). See [migration status](migration-status.md) for
+the original phase checklist and justified deferrals. `code/` now contains only
+forwarding/import modules and retained artifacts.

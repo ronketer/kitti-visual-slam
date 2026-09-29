@@ -19,6 +19,7 @@ kitti-slam = "kitti_slam.pipeline:main"
 
 [tool.setuptools]
 py-modules = ["tracking_database"]
+include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["."]

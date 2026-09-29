@@ -2,11 +2,15 @@
 
 ## What has been verified
 
-The package migration was checked on native Windows with CPython 3.13.5:
-48 tests ran, 44 passed and four real-GTSAM tests were skipped. This is a recorded
+The completed structural migration was checked on native Windows with CPython
+3.13.5: **56 tests ran, 52 passed and four real-GTSAM tests were skipped**.
+The organization completion adds geometry, projection aggregation,
+window policy, import-direction and legacy-dispatch checks. This is a recorded
 refactor validation result, not a permanent promise about other environments.
 Editable installation, a built wheel's isolated imports, the console entry point
 from another directory, and historical tracking-pickle class loading were checked.
+The final source distribution and wheel contents were checked to exclude binary
+artifacts/datasets and separate runtime from historical source.
 
 Run the suite after installing the `plotting` extra:
 
@@ -70,8 +74,10 @@ package move. Each change needs its own expected behavior and regression evidenc
 | `pose_graph.extract_relative_pose_covariance` | A conditional endpoint covariance block is used as relative-pose covariance; key/block ordering, tangent-frame interpretation and omitted Jacobians require review. | Derive and test relative-pose uncertainty explicitly |
 | `pipeline.run_stage_3` | Uses the last ground-truth pose as a tight estimation prior. | Keep this experiment labeled; visual loop detection would be new algorithmic work |
 | GT readers and `gtsam_geometry.create_pose_from_extrinsics` | Parsed KITTI pose matrices are treated as world-to-camera extrinsics and inverted. | Verify the dataset convention before changing transforms or metrics |
-| `evaluation.trajectory_errors`, `code/final/plot_relative_errors.py` | Subsequence computation uses the first half of available keyframes and nearest-endpoint snapping; the report also plots half-sampled consecutive results. | Establish an explicit evaluation protocol before claiming standard KITTI metrics |
+| `evaluation.trajectory_errors`, `reports/plot_relative_errors.py` | Subsequence computation uses the first half of available keyframes and nearest-endpoint snapping; the report also plots half-sampled consecutive results. | Establish an explicit evaluation protocol before claiming standard KITTI metrics |
 | Historical README results | Aggregate numbers and image provenance have not been reproduced from restored payloads. | Recover provenance or publish new labeled measurements |
 
-Other historical entry-point and path problems are recorded in the
-[coursework map](../code/README.md). They do not block canonical package imports.
+The exercise 3 detector import problem has been repaired without changing its
+algorithms. Historical paths are centralized and module/script forwarding is
+tested. See [migration status](migration-status.md) for completed structural
+work and the remaining numerical/artifact-reproduction deferrals.

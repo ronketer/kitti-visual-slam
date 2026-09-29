@@ -50,3 +50,39 @@ def coordinate_transform(points, extrinsic_matrix):
 
     transformed_points = points_homogeneous @ extrinsic_matrix.T
     return transformed_points
+
+
+def compute_camera_to_camera_transform(source_cam_extrinsic, target_cam_extrinsic):
+    """Compute transformation matrix from one camera's coordinate system to another.
+
+    Args:
+        source_cam_extrinsic: Extrinsic matrix of the source camera (camera A)
+        target_cam_extrinsic: Extrinsic matrix of the target camera (camera B)
+
+    Returns:
+        Transformation matrix that converts points from source camera's coordinate system
+        to target camera's coordinate system.
+
+    The transformation is derived from:
+        x_source = R_source x_world + t_source
+        x_target = R_target x_world + t_target
+        Solving for x_world in first equation and substituting into second:
+        x_target = R_target R_source^T (x_source - t_source) + t_target
+        Which gives the transformation matrix: [R_target R_source^T | t_target - R_target R_source^T t_source]
+    """
+    R_source = source_cam_extrinsic[:, :3]
+    t_source = source_cam_extrinsic[:, 3].reshape(3, 1)
+    R_target = target_cam_extrinsic[:, :3]
+    t_target = target_cam_extrinsic[:, 3].reshape(3, 1)
+
+    cam_to_cam_rotation = R_target @ R_source.T
+    cam_to_cam_translation = t_target - cam_to_cam_rotation @ t_source
+
+    return np.hstack((cam_to_cam_rotation, cam_to_cam_translation))
+
+
+def find_transformation(extrinsic_matrix):
+    """Find the transformation matrix from the extrinsic matrix."""
+    R = extrinsic_matrix[:, :3]
+    t = extrinsic_matrix[:, 3]
+    return lambda x: R @ x + t
