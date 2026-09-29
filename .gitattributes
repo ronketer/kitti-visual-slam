@@ -1,3 +1,0 @@
-# Git LFS for large model files (if needed later)
-# *.pkl filter=lfs diff=lfs merge=lfs -text
-# *.pth filter=lfs diff=lfs merge=lfs -text
